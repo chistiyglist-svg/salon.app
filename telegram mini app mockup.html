@@ -1,0 +1,2523 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=overlays-content">
+<title>Салон — Mini App макет</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+  /* Применяем сохранённую тему ДО отрисовки CSS, чтобы не было вспышки неправильной темы */
+  (function(){
+    try{
+      var saved = localStorage.getItem('salon_theme_mode') || 'system';
+      var effective = saved;
+      if(saved === 'system'){
+        effective = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.colorScheme)
+          ? window.Telegram.WebApp.colorScheme
+          : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      }
+      document.documentElement.setAttribute('data-theme', effective);
+      document.documentElement.setAttribute('data-theme-mode', saved);
+    }catch(e){}
+  })();
+</script>
+<style>
+  :root{
+    --paper:#F7EFE6;
+    --paper-deep:#F0E5D6;
+    --ink:#2B211D;
+    --ink-soft:#6B5C53;
+    --plum:#6E3550;
+    --plum-deep:#54263D;
+    --brass:#B98A4E;
+    --sage:#7C8767;
+    --line:#E4D8C8;
+    --card:#FFFDF9;
+    --white:#ffffff;
+    --tint-danger-bg:#FBEDE9;
+    --tint-danger-border:#E3A99B;
+    --tint-danger-text:#B0473F;
+    --tint-warm-bg:#F1E9DC;
+    --tint-good-bg:#E7EBDF;
+    --tint-good-text:#4E5A3E;
+    --tint-admin-bg:#E6DCF0;
+    --tint-admin-text:#5B3E82;
+    --tint-owner-bg:#F1E0D2;
+    --reco-grad-1:#F1E0D2;
+    --reco-grad-2:#EBD3BD;
+  }
+  :root[data-theme="dark"]{
+    --paper:#221A17;
+    --paper-deep:#170F0D;
+    --ink:#F2E8DE;
+    --ink-soft:#B7A79A;
+    --plum:#9C5776;
+    --plum-deep:#7A3D5C;
+    --brass:#D2A874;
+    --sage:#93A17C;
+    --line:#3B302B;
+    --card:#2B2320;
+    --white:#ffffff;
+    --tint-danger-bg:#3A2420;
+    --tint-danger-border:#6E3E37;
+    --tint-danger-text:#E8988A;
+    --tint-warm-bg:#332821;
+    --tint-good-bg:#2B3325;
+    --tint-good-text:#B7C7A3;
+    --tint-admin-bg:#2E2638;
+    --tint-admin-text:#C3AEDE;
+    --tint-owner-bg:#3A2E22;
+    --reco-grad-1:#3A2E22;
+    --reco-grad-2:#4A3826;
+  }
+  *{box-sizing:border-box;}
+  html, body{ height:100%; }
+  body{
+    margin:0;
+    font-family:'Work Sans',sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    height:100vh;
+    height:100dvh;
+    overflow:hidden;
+  }
+  h1.page-title{
+    font-family:'Fraunces',serif;
+    font-weight:500;
+    font-size:22px;
+    color:var(--ink);
+    margin:0 0 4px;
+    text-align:center;
+  }
+  p.page-sub{
+    font-size:13px;
+    color:var(--ink-soft);
+    margin:0 0 24px;
+    text-align:center;
+    max-width:420px;
+  }
+
+  /* ---- полноэкранный контейнер приложения: без рамок, без "телефона на экране" ---- */
+  .phone{
+    width:100%;
+    height:100vh;
+    height:100dvh;
+    background:var(--paper);
+    position:relative;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+  }
+  .tg-bar{
+    padding:calc(env(safe-area-inset-top, 0px) + 12px) 18px 12px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+  }
+  .tg-bar .avatar{
+    width:34px;height:34px;border-radius:50%;
+    background:linear-gradient(145deg,var(--plum),var(--plum-deep));
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-family:'Fraunces',serif;font-size:15px;
+  }
+  .tg-bar .who{ line-height:1.25; }
+  .tg-bar .who .name{ font-weight:600; font-size:14.5px; }
+  .tg-bar .who .status{ font-size:11px; color:var(--sage); }
+
+  .screen{
+    flex:1;
+    min-height:0;
+    overflow-y:auto;
+    display:none;
+    flex-direction:column;
+  }
+  .screen.active{ display:flex; }
+  /* Защита от скрытого flexbox-бага: любой прямой потомок экрана по умолчанию
+     не сжимается ниже своего реального содержимого — экран сам скроллится
+     (overflow-y:auto выше), а не сплющивает свои блоки. Элементы, которым
+     действительно нужно тянуться (например .chat-wrap), переопределяют это
+     локально своим собственным правилом ниже по каскаду. */
+  .screen > *{ flex-shrink:0; }
+
+  /* ================= HOME ================= */
+  .home-hero{
+    padding:20px 18px 8px;
+  }
+  .home-hero .greet{
+    font-family:'Fraunces',serif;
+    font-size:21px;
+    font-weight:500;
+    margin:0 0 6px;
+  }
+  .home-hero .greet span{ color:var(--plum); }
+  .home-hero .lede{
+    font-size:13px;
+    color:var(--ink-soft);
+    margin:0 0 16px;
+    line-height:1.45;
+  }
+  .ask-box{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:14px 16px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    box-shadow:0 6px 16px rgba(60,40,20,0.06);
+  }
+  .ask-box input{
+    border:none;background:transparent;outline:none;
+    font-family:'Work Sans',sans-serif;font-size:14px;
+    flex:1;color:var(--ink);
+  }
+  .ask-box input::placeholder{ color:var(--ink-soft); }
+  .ask-box .send{
+    width:34px;height:34px;border-radius:50%;
+    background:var(--plum); color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+  .grid-actions{
+    padding:18px 18px 20px;
+    display:grid;
+    grid-template-columns:1.3fr 1fr;
+    grid-template-rows:auto auto;
+    gap:10px;
+  }
+  .action-card{
+    border-radius:18px;
+    padding:16px 14px;
+    position:relative;
+    overflow:hidden;
+  }
+  .action-card .icn{
+    width:26px;height:26px;margin-bottom:22px;
+  }
+  .action-card .lbl{
+    font-family:'Fraunces',serif;
+    font-size:15px;font-weight:500;
+    line-height:1.2;
+  }
+  .action-card .sub{
+    font-size:11px;color:rgba(255,255,255,0.75);margin-top:2px;
+  }
+  .action-card.hero{
+    grid-row:span 2;
+    background:linear-gradient(160deg,var(--plum),var(--plum-deep));
+    color:#fff;
+  }
+  .action-card.hero .sub{ color:#E9D3C9; }
+  .action-card.two{ background:var(--card); border:1px solid var(--line); color:var(--ink);}
+  .action-card.two .sub{ color:var(--ink-soft); }
+  .action-card.three{ background:#EFE6D4; border:1px solid var(--line); color:var(--ink);}
+  .action-card.three .sub{ color:var(--ink-soft); }
+
+  .promo-strip{
+    margin:0 18px 18px;
+    background:var(--white);
+    border:1px dashed var(--brass);
+    border-radius:16px;
+    padding:12px 14px;
+    display:flex;align-items:center;gap:10px;
+  }
+  .promo-strip .dot{ width:8px;height:8px;border-radius:50%;background:var(--brass); flex-shrink:0; }
+  .promo-strip .txt{ font-size:12.5px; color:var(--ink); line-height:1.4;}
+  .promo-strip .txt b{ font-weight:600; }
+
+  /* ================= AI CHAT ================= */
+  /* у экрана чата единственный скролл — внутри chat-wrap; сам экран не скроллится */
+  #chat.screen, #salonChat.screen{ overflow-y:hidden; }
+
+  .chat-wrap{
+    flex:1;
+    min-height:0;
+    padding:16px 14px 8px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;
+  }
+  .bubble{
+    max-width:78%;
+    padding:11px 14px;
+    font-size:13.5px;
+    line-height:1.45;
+    flex-shrink:0;
+    opacity:0;
+    transform:translateY(6px);
+    animation:rise .35s ease forwards;
+  }
+  @keyframes rise{ to{opacity:1;transform:translateY(0);} }
+  .bubble.bot{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:4px 16px 16px 16px;
+    align-self:flex-start;
+    color:var(--ink);
+  }
+  .bubble.me{
+    background:var(--plum);
+    color:#fff;
+    border-radius:16px 4px 16px 16px;
+    align-self:flex-end;
+  }
+  .bubble.card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:4px 16px 16px 16px;
+    align-self:flex-start;
+    padding:0;
+    overflow:hidden;
+    max-width:82%;
+  }
+  .slot-card-head{
+    padding:12px 14px 8px;
+    font-size:13px;color:var(--ink-soft);
+  }
+  .slot-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:10px 14px;border-top:1px solid var(--line);
+  }
+  .slot-row .who{ display:flex; align-items:center; gap:8px; }
+  .slot-row .who .av{
+    width:26px;height:26px;border-radius:50%;
+    background:linear-gradient(145deg,var(--brass),#8C6A3A);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-family:'Fraunces',serif;
+  }
+  .slot-row .meta{ font-size:12.5px; }
+  .slot-row .meta .t{ font-weight:600; }
+  .slot-row .meta .d{ color:var(--ink-soft); font-size:11px; }
+  .slot-row button{
+    border:none;background:var(--sage);color:#fff;
+    font-size:11.5px;font-weight:600;padding:7px 12px;border-radius:10px;
+  }
+  .typing{
+    align-self:flex-start;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:4px 16px 16px 16px;
+    padding:11px 16px;
+    display:flex;gap:4px;
+    flex-shrink:0;
+  }
+  .typing span{
+    width:6px;height:6px;border-radius:50%;background:var(--ink-soft);
+    animation:blink 1.2s infinite ease-in-out;
+  }
+  .typing span:nth-child(2){ animation-delay:.2s; }
+  .typing span:nth-child(3){ animation-delay:.4s; }
+  @keyframes blink{ 0%,80%,100%{opacity:.25;} 40%{opacity:1;} }
+  .chat-input{
+    padding:12px 14px 16px;border-top:1px solid var(--line);
+    display:flex;gap:8px;align-items:center;
+  }
+  .chat-input .box{
+    flex:1;background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:9px 12px;font-size:13px;color:var(--ink);outline:none;font-family:'Work Sans',sans-serif;
+  }
+  .chat-input .send{
+    width:32px;height:32px;border-radius:50%;background:var(--plum);color:#fff;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+
+  /* ================= MY BOOKINGS ================= */
+  .sec-title{
+    font-size:11px;text-transform:none;color:var(--ink-soft);
+    padding:16px 18px 8px;font-weight:600;letter-spacing:.2px;
+  }
+  .booking-card{
+    margin:0 18px 12px;
+    background:var(--card);border:1px solid var(--line);border-radius:18px;
+    padding:14px 16px;
+  }
+  .booking-card .top{ display:flex; justify-content:space-between; align-items:flex-start; }
+  .booking-card .svc{ font-family:'Fraunces',serif; font-size:16px; font-weight:500; }
+  .booking-card .with{ font-size:12px; color:var(--ink-soft); margin-top:2px;}
+  .booking-card .when{
+    text-align:right;font-size:12px;color:var(--ink-soft);
+  }
+  .booking-card .when b{ display:block; color:var(--ink); font-size:14px; }
+  .booking-card .tags{ display:flex; gap:6px; margin-top:12px; flex-wrap:wrap; }
+  .tag{
+    font-size:10.5px;padding:4px 9px;border-radius:8px;background:var(--paper-deep);color:var(--ink-soft);
+  }
+  .tag.good{ background:var(--tint-good-bg); color:var(--tint-good-text); }
+  .booking-actions{ display:flex; gap:8px; margin-top:12px; }
+  .booking-actions button{
+    flex:1;border:none;padding:9px 0;border-radius:10px;font-size:12.5px;font-weight:600;
+  }
+  .booking-actions .primary{ background:var(--plum); color:#fff; }
+  .booking-actions .ghost{ background:transparent; border:1px solid var(--line); color:var(--ink); }
+
+  .history-row{
+    margin:0 18px;padding:10px 0;border-top:1px solid var(--line);
+    display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-soft);
+  }
+  .history-row .l{ color:var(--ink); }
+
+  /* ================= DEPOSIT / CONFIRM ================= */
+  .confirm-wrap{ padding:18px; }
+  .confirm-card{
+    background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;margin-bottom:14px;
+  }
+  .confirm-card .h{
+    font-family:'Fraunces',serif; font-size:17px; font-weight:500; margin:0 0 10px;
+  }
+  .confirm-line{
+    display:flex;justify-content:space-between;font-size:13px;padding:7px 0;border-top:1px solid var(--line);
+  }
+  .confirm-line:first-of-type{ border-top:none; }
+  .confirm-line .k{ color:var(--ink-soft); }
+  .confirm-line .v{ font-weight:600; }
+  .deposit-note{
+    background:var(--tint-warm-bg);border:1px solid var(--brass);border-radius:14px;
+    padding:12px 14px;font-size:12.5px;line-height:1.5;color:var(--ink);margin-top:12px;
+  }
+  .deposit-note b{ color:var(--plum-deep); }
+  .confirm-cta{
+    width:100%;border:none;background:var(--plum);color:#fff;
+    padding:13px 0;border-radius:14px;font-size:14px;font-weight:600;margin-top:4px;
+  }
+  .confirm-fine{
+    text-align:center;font-size:11px;color:var(--ink-soft);margin-top:10px;line-height:1.5;
+  }
+
+  /* ================= SETTINGS / PRIVACY ================= */
+  .settings-wrap{ padding:14px 0; }
+  .settings-group{ margin:0 18px 18px; }
+  .settings-group .label{
+    font-size:11px;color:var(--ink-soft);font-weight:600;padding:0 2px 8px;
+  }
+  .settings-row{
+    background:var(--card);border:1px solid var(--line);
+    padding:13px 14px;display:flex;justify-content:space-between;align-items:center;
+    gap:10px;
+  }
+  .settings-row:first-child{ border-radius:16px 16px 0 0; }
+  .settings-row:last-child{ border-radius:0 0 16px 16px; border-top:none;}
+  .settings-row + .settings-row{ border-top:none; margin-top:-1px; }
+  .settings-row .t{ font-size:13.5px; }
+  .settings-row .d{ font-size:11.5px;color:var(--ink-soft); margin-top:2px; }
+  .toggle{
+    width:40px;height:24px;border-radius:999px;background:var(--sage);
+    position:relative;flex-shrink:0;
+  }
+  .toggle::after{
+    content:'';position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;background:#fff;
+  }
+  .toggle.off{ background:var(--line); }
+  .toggle.off::after{ right:auto; left:3px; }
+  .link-row{
+    font-size:13px;color:var(--plum);padding:0 18px;margin-bottom:10px;font-weight:600;
+  }
+
+  /* ================= BOTTOM NAV (встроена в экран) ================= */
+  .bottom-nav{
+    position:relative;
+    display:flex;
+    gap:2px;
+    background:var(--card);
+    border-radius:26px;
+    margin:0 14px calc(12px + env(safe-area-inset-bottom, 0px));
+    padding:6px;
+    box-shadow:0 10px 28px rgba(30,20,15,0.16), 0 2px 6px rgba(30,20,15,0.08);
+    flex-shrink:0;
+    touch-action:none;
+  }
+  .nav-pill{
+    position:absolute;
+    top:6px; bottom:6px; left:0;
+    width:0;
+    border-radius:20px;
+    background:var(--plum);
+    transition:transform .32s cubic-bezier(.22,.85,.3,1.1), width .32s cubic-bezier(.22,.85,.3,1.1);
+    z-index:1;
+    pointer-events:none;
+  }
+  .nav-btn{
+    position:relative;
+    z-index:2;
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:3px;
+    background:none;
+    border:none;
+    padding:8px 2px;
+    font-family:'Work Sans',sans-serif;
+    color:var(--ink-soft);
+    cursor:pointer;
+  }
+  .nav-btn svg{ width:20px; height:20px; transition:transform .32s cubic-bezier(.22,.85,.3,1.1); }
+  .nav-btn svg path, .nav-btn svg circle{
+    stroke:var(--ink-soft);
+    transition:stroke .2s ease;
+  }
+  .nav-btn .nlbl{
+    font-size:10px;
+    font-weight:600;
+    transition:color .2s ease;
+  }
+  .nav-btn.active{ color:#fff; }
+  .nav-btn.active svg path, .nav-btn.active svg circle{ stroke:#fff; }
+  .nav-btn.active svg{ transform:translateY(-1px) scale(1.06); }
+  .nav-btn .dotcue{
+    width:4px;height:4px;border-radius:50%;background:var(--brass);
+    position:relative; top:-15px; left:9px;
+  }
+
+  /* ================= TOAST ================= */
+  .toast{
+    position:absolute;
+    left:50%; bottom:78px;
+    transform:translateX(-50%) translateY(14px);
+    background:var(--ink); color:#fff;
+    padding:10px 16px; border-radius:12px;
+    font-size:12.5px; line-height:1.4;
+    max-width:82%; text-align:center;
+    opacity:0; pointer-events:none;
+    transition:opacity .22s ease, transform .22s ease;
+    z-index:80;
+    box-shadow:0 10px 22px rgba(0,0,0,0.25);
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* ================= BOTTOM SHEET ================= */
+  .sheet-overlay{
+    position:absolute; inset:0;
+    background:rgba(30,20,15,0.42);
+    display:flex; align-items:flex-end;
+    opacity:0; pointer-events:none;
+    transition:opacity .22s ease;
+    z-index:70;
+  }
+  .sheet-overlay.show{ opacity:1; pointer-events:auto; }
+  .sheet{
+    width:100%; background:var(--paper);
+    border-radius:22px 22px 0 0;
+    padding:10px 18px 22px;
+    max-height:72%;
+    display:flex; flex-direction:column;
+    transform:translateY(100%);
+    transition:transform .28s cubic-bezier(.2,.8,.3,1);
+  }
+  .sheet-overlay.show .sheet{ transform:translateY(0); }
+  .sheet-handle{
+    width:100%;
+    padding:14px 0;
+    display:flex;
+    justify-content:center;
+    cursor:pointer;
+  }
+  .sheet-handle::before{
+    content:'';
+    width:36px;height:4px;background:var(--line);border-radius:99px;
+  }
+  .sheet-title{
+    font-family:'Fraunces',serif; font-size:16px; font-weight:500;
+    margin-bottom:10px;
+  }
+  .sheet-body{ overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
+  .sheet-item{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:11px 13px; display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .sheet-item .si-info{ display:flex; align-items:center; gap:10px; }
+  .sheet-item .si-av{
+    width:32px;height:32px;border-radius:50%;
+    background:linear-gradient(145deg,var(--brass),#8C6A3A);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Fraunces',serif;font-size:13px;flex-shrink:0;
+  }
+  .sheet-item .si-name{ font-size:13.5px; font-weight:600; }
+  .sheet-item .si-sub{ font-size:11.5px; color:var(--ink-soft); }
+  .sheet-item button{
+    border:none; background:var(--plum); color:#fff;
+    font-size:11.5px; font-weight:600; padding:7px 12px; border-radius:10px; flex-shrink:0;
+  }
+  .sheet-fact{
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:10px 12px; font-size:12.5px; color:var(--ink); line-height:1.4;
+  }
+  .sheet-close{
+    align-self:center; margin-top:12px; background:none; border:none;
+    color:var(--ink-soft); font-size:12.5px; font-weight:600;
+  }
+
+  /* ================= confirm inline yes/no bar ================= */
+  .confirm-bar{
+    display:flex; gap:8px; margin-top:12px;
+  }
+  .confirm-bar button{ flex:1; border:none; padding:9px 0; border-radius:10px; font-size:12.5px; font-weight:600; }
+  .confirm-bar .yes{ background:#B0473F; color:#fff; }
+  .confirm-bar .no{ background:var(--paper-deep); color:var(--ink); }
+
+  .booking-card.cancelled{ opacity:.55; }
+  .booking-card.cancelled .svc{ text-decoration:line-through; }
+
+  .confirm-cta.done{
+    background:var(--sage); pointer-events:none;
+  }
+
+  .ai-hint{
+    font-size:10.5px; color:var(--ink-soft); text-align:center; padding:0 18px 10px;
+  }
+
+  /* ================= ROLE BADGE + SPLASH ================= */
+  .tg-bar{ position:relative; }
+  .role-badge{
+    margin-left:auto;
+    display:flex; align-items:center; gap:5px;
+    background:var(--paper-deep); border:1px solid var(--line);
+    border-radius:999px; padding:6px 11px 6px 8px;
+    font-size:11px; font-weight:600; color:var(--ink);
+    flex-shrink:0;
+  }
+  .role-badge .rb-dot{ width:6px;height:6px;border-radius:50%; background:var(--sage); }
+  .role-badge .rb-chev{ font-size:9px; color:var(--ink-soft); margin-left:1px; }
+
+  .splash{
+    position:absolute; inset:0; z-index:100;
+    background:linear-gradient(160deg,var(--plum),var(--plum-deep));
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:10px;
+    transition:opacity .4s ease;
+  }
+  .splash.hide{ opacity:0; pointer-events:none; }
+  .splash .sp-mark{
+    font-family:'Fraunces',serif; font-size:26px; color:#fff;
+  }
+  .splash .sp-txt{ font-size:12px; color:#E9D3C9; }
+
+  /* ================= ROLE HOME SCREENS ================= */
+  .role-head{ padding:20px 18px 6px; }
+  .role-head .kicker{ font-size:11px; font-weight:700; color:var(--brass); text-transform:uppercase; letter-spacing:.4px; }
+  .role-head .title{ font-family:'Fraunces',serif; font-size:20px; font-weight:500; margin:3px 0 4px; }
+  .role-head .sub{ font-size:12.5px; color:var(--ink-soft); line-height:1.4; }
+
+  .stat-row{ display:flex; gap:8px; padding:14px 18px 4px; }
+  .stat-chip{
+    flex:1; background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:11px 10px; text-align:center;
+  }
+  .stat-chip .num{ font-family:'Fraunces',serif; font-size:19px; color:var(--ink); }
+  .stat-chip .lbl{ font-size:10px; color:var(--ink-soft); margin-top:2px; }
+
+  .alert-card{
+    margin:14px 18px 0; background:var(--tint-danger-bg); border:1px solid var(--tint-danger-border);
+    border-radius:16px; padding:13px 14px; font-size:12.5px; line-height:1.45; color:var(--ink);
+  }
+  .alert-card b{ color:#B0473F; }
+  .alert-card .aa{ display:flex; gap:8px; margin-top:10px; }
+  .alert-card .aa button{ flex:1; border:none; padding:8px 0; border-radius:10px; font-size:11.5px; font-weight:600; }
+  .alert-card .aa .primary{ background:#B0473F; color:#fff; }
+  .alert-card .aa .ghost{ background:#fff; border:1px solid #E3A99B; color:var(--ink); }
+
+  .agenda-item{
+    margin:0 18px 10px; background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:11px 13px; display:flex; align-items:center; gap:11px;
+  }
+  .agenda-item .ai-time{ font-family:'Fraunces',serif; font-size:15px; width:48px; flex-shrink:0; color:var(--plum-deep); }
+  .agenda-item .ai-mid{ flex:1; }
+  .agenda-item .ai-mid .n{ font-size:13.5px; font-weight:600; }
+  .agenda-item .ai-mid .s{ font-size:11.5px; color:var(--ink-soft); }
+
+  .entry-card{
+    margin:0 18px 10px; background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:14px 15px; display:flex; align-items:center; gap:12px;
+  }
+  .entry-card .ec-ic{
+    width:38px;height:38px;border-radius:11px; background:var(--paper-deep);
+    display:flex;align-items:center;justify-content:center; flex-shrink:0;
+    color:var(--plum);
+  }
+  .entry-card .ec-ic svg{ width:19px;height:19px; }
+  .entry-card .ec-mid{ flex:1; }
+  .entry-card .ec-mid .n{ font-family:'Fraunces',serif; font-size:14.5px; font-weight:500; }
+  .entry-card .ec-mid .s{ font-size:11.5px; color:var(--ink-soft); margin-top:1px; }
+  .entry-card .ec-arrow{ color:var(--ink-soft); font-size:15px; }
+
+  .lock-note{
+    margin:14px 18px 0; background:var(--tint-warm-bg); border:1px dashed var(--brass); border-radius:14px;
+    padding:11px 13px; font-size:12px; line-height:1.5; color:var(--ink);
+  }
+
+  /* ================= TEAM (owner) ================= */
+  .staff-row{
+    margin:0 18px 10px; background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:12px 13px; display:flex; align-items:center; gap:10px;
+  }
+  .staff-row.revoked{ opacity:.5; }
+  .staff-row .sr-av{
+    width:34px;height:34px;border-radius:50%; flex-shrink:0;
+    background:linear-gradient(145deg,var(--brass),#8C6A3A);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Fraunces',serif;font-size:13px;
+  }
+  .staff-row .sr-mid{ flex:1; }
+  .staff-row .sr-mid .n{ font-size:13.5px; font-weight:600; }
+  .role-tag{
+    display:inline-block; font-size:10px; font-weight:700; padding:2px 8px; border-radius:7px;
+    margin-top:2px; letter-spacing:.2px;
+  }
+  .role-tag.master{ background:var(--tint-good-bg); color:var(--tint-good-text); }
+  .role-tag.admin{ background:var(--tint-admin-bg); color:var(--tint-admin-text); }
+  .role-tag.owner{ background:var(--tint-owner-bg); color:var(--plum-deep); }
+  .staff-row .sr-revoke{
+    border:none; background:transparent; color:#B0473F; font-size:11.5px; font-weight:600;
+    flex-shrink:0;
+  }
+  .add-staff-btn{
+    margin:6px 18px 4px; border:1.5px dashed var(--brass); background:transparent;
+    color:var(--plum-deep); font-weight:600; font-size:13px;
+    padding:12px 0; border-radius:14px; width:calc(100% - 36px);
+  }
+  .invite-role-pick{ display:flex; gap:8px; margin-top:4px; }
+  .invite-role-pick button{
+    flex:1; border:1px solid var(--line); background:var(--card); color:var(--ink);
+    padding:11px 0; border-radius:12px; font-size:12.5px; font-weight:600;
+  }
+  .invite-box{
+    background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px;
+    text-align:center;
+  }
+  .invite-code{
+    font-family:'Fraunces',serif; font-size:24px; letter-spacing:3px; color:var(--plum-deep);
+    margin:6px 0;
+  }
+  .invite-timer{ font-size:11px; color:var(--ink-soft); }
+  .invite-copy{
+    margin-top:12px; width:100%; border:none; background:var(--plum); color:#fff;
+    padding:11px 0; border-radius:12px; font-size:13px; font-weight:600;
+  }
+
+  /* ================= TOP BAR: bell + tabs helper ================= */
+  .bell-btn{
+    width:32px;height:32px;border-radius:50%;
+    background:var(--paper-deep); border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    position:relative; flex-shrink:0;
+    color:var(--ink);
+  }
+  .bell-btn svg{ width:16px;height:16px; }
+  .bell-btn .bell-dot{
+    position:absolute; top:5px; right:6px;
+    width:7px;height:7px;border-radius:50%; background:#B0473F; border:1.5px solid var(--paper);
+  }
+
+  .seg-tabs{
+    display:flex; gap:6px; margin:12px 18px 4px;
+    background:var(--paper-deep); border-radius:12px; padding:4px;
+  }
+  .seg-tabs button{
+    flex:1; border:none; background:transparent; padding:8px 0;
+    border-radius:9px; font-size:12px; font-weight:600; color:var(--ink-soft);
+  }
+  .seg-tabs button.active{ background:var(--card); color:var(--ink); box-shadow:0 2px 6px rgba(60,40,20,0.08); }
+
+  .chip-row{ display:flex; gap:7px; padding:2px 18px 10px; overflow-x:auto; }
+  .chip{
+    flex-shrink:0; font-size:12px; font-weight:600; color:var(--ink);
+    background:var(--card); border:1px solid var(--line); border-radius:999px;
+    padding:7px 13px; white-space:nowrap; line-height:1.3;
+    appearance:none; -webkit-appearance:none; font-family:'Work Sans',sans-serif;
+  }
+  .chip.active{ background:var(--plum); color:#fff; border-color:var(--plum); }
+
+  /* ================= reco / recent cards на главной ================= */
+  .reco-card{
+    margin:0 18px 12px; background:linear-gradient(135deg,var(--reco-grad-1),var(--reco-grad-2));
+    border-radius:18px; padding:14px 15px; display:flex; gap:12px; align-items:center;
+  }
+  .reco-card .rc-badge{ font-size:10px; font-weight:700; color:var(--plum-deep); text-transform:uppercase; letter-spacing:.3px; }
+  .reco-card .rc-txt{ font-size:12.5px; color:var(--ink); line-height:1.4; margin-top:3px; }
+  .reco-card button{
+    flex-shrink:0; border:none; background:var(--plum); color:#fff;
+    font-size:11px; font-weight:600; padding:8px 12px; border-radius:10px;
+  }
+
+  .next-visit-card{
+    margin:0 18px 12px; background:var(--card); border:1px solid var(--line); border-radius:18px;
+    padding:14px 15px;
+  }
+  .next-visit-card .nv-top{ display:flex; justify-content:space-between; align-items:center; }
+  .next-visit-card .nv-lbl{ font-size:11px; color:var(--ink-soft); font-weight:600; }
+  .next-visit-card .nv-when{ font-family:'Fraunces',serif; font-size:15px; margin-top:3px; }
+  .next-visit-card .nv-svc{ font-size:12px; color:var(--ink-soft); margin-top:1px; }
+
+  .quick-row{ display:flex; gap:10px; padding:2px 18px 14px; }
+  .quick-btn{
+    flex:1; background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:12px 8px; text-align:center; font-size:11.5px; font-weight:600; color:var(--ink);
+  }
+  .quick-btn svg{ width:18px;height:18px; margin-bottom:5px; }
+
+  /* ================= МАСТЕРА (список + карточка) ================= */
+  .master-card{
+    margin:0 18px 12px; background:var(--card); border:1px solid var(--line); border-radius:18px;
+    padding:14px; display:flex; gap:12px;
+  }
+  .mc-av{
+    width:52px;height:52px;border-radius:14px; flex-shrink:0;
+    background:linear-gradient(145deg,var(--brass),#8C6A3A);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Fraunces',serif;font-size:19px;
+  }
+  .master-card .mc-mid{ flex:1; }
+  .master-card .mc-mid .n{ font-family:'Fraunces',serif; font-size:15.5px; font-weight:500; }
+  .master-card .mc-mid .spec{ font-size:11.5px; color:var(--ink-soft); margin-top:1px; }
+  .master-card .mc-mid .rating{ font-size:11px; color:var(--brass); margin-top:4px; font-weight:600; }
+  .master-card .mc-arrow{ align-self:center; color:var(--ink-soft); }
+
+  .md-header{
+    padding:18px; display:flex; gap:14px; align-items:center;
+    background:var(--card); border-bottom:1px solid var(--line);
+  }
+  .md-header .mc-av{ width:60px;height:60px;font-size:22px;border-radius:16px; }
+  .md-header .n{ font-family:'Fraunces',serif; font-size:18px; font-weight:500; }
+  .md-header .spec{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+  .md-header .rating{ font-size:12px; color:var(--brass); font-weight:600; margin-top:4px; }
+  .back-row{ padding:14px 18px 0; }
+  .back-row button{
+    border:none; background:none; color:var(--ink-soft); font-size:12.5px; font-weight:600; padding:0;
+  }
+  .portfolio-grid{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:12px 18px;
+  }
+  .portfolio-grid .pg-item{
+    aspect-ratio:1; border-radius:12px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:10px; color:#fff; text-align:center; padding:6px;
+  }
+  .md-cta{
+    margin:6px 18px 18px; width:calc(100% - 36px); border:none; background:var(--plum); color:#fff;
+    padding:13px 0; border-radius:14px; font-size:14px; font-weight:600;
+  }
+
+  /* ================= РЕЗУЛЬТАТЫ (до/после) ================= */
+  .result-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:12px 18px; }
+  .result-item{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; overflow:hidden;
+  }
+  .result-item .ri-img{
+    aspect-ratio:1; display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; text-align:center; padding:8px;
+    cursor:pointer;
+  }
+  .result-item .ri-foot{ padding:9px 10px; display:flex; justify-content:space-between; align-items:center; }
+  .result-item .ri-foot .who{ font-size:11px; color:var(--ink-soft); }
+  .result-item .ri-like{ display:flex; align-items:center; gap:4px; font-size:11px; color:var(--ink-soft); }
+  .result-item .ri-like.liked{ color:#B0473F; font-weight:600; }
+
+  /* ================= ОТЗЫВЫ ================= */
+  .review-card{
+    margin:0 18px 12px; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:13px 14px;
+  }
+  .review-card .rv-top{ display:flex; justify-content:space-between; align-items:center; }
+  .review-card .rv-who{ font-size:13px; font-weight:600; }
+  .review-card .rv-stars{ color:var(--brass); font-size:12px; }
+  .review-card .rv-txt{ font-size:12.5px; color:var(--ink); line-height:1.45; margin-top:6px; }
+  .review-card .rv-meta{ font-size:10.5px; color:var(--ink-soft); margin-top:6px; }
+
+  .star-pick{ display:flex; gap:6px; padding:0 18px; margin-bottom:12px; }
+  .star-pick .st{ font-size:26px; color:var(--line); cursor:pointer; }
+  .star-pick .st.on{ color:var(--brass); }
+  .review-form textarea{
+    width:calc(100% - 36px); margin:0 18px 12px; min-height:80px; resize:none;
+    border:1px solid var(--line); border-radius:14px; padding:12px; font-family:'Work Sans',sans-serif;
+    font-size:13px; background:var(--card); color:var(--ink); outline:none;
+  }
+  .add-photo-row{ margin:0 18px 12px; }
+  .add-photo-row .ap-box{
+    width:64px;height:64px; border:1.5px dashed var(--brass); border-radius:14px;
+    display:flex;align-items:center;justify-content:center; color:var(--brass); font-size:22px;
+  }
+  .submit-review-btn{
+    margin:2px 18px 18px; width:calc(100% - 36px); border:none; background:var(--plum); color:#fff;
+    padding:13px 0; border-radius:14px; font-size:14px; font-weight:600;
+  }
+
+  /* ================= ЧАТ С САЛОНОМ ================= */
+  .quick-reply-row{ display:flex; gap:7px; padding:0 14px 10px; flex-wrap:wrap; }
+  .quick-reply{
+    border:1px solid var(--plum); background:#fff; color:var(--plum-deep);
+    font-size:11.5px; font-weight:600; padding:7px 12px; border-radius:999px;
+  }
+
+  /* ================= ПРОФИЛЬ ================= */
+  .profile-head{
+    padding:22px 18px 16px; display:flex; align-items:center; gap:13px;
+    background:var(--card); border-bottom:1px solid var(--line);
+  }
+  .profile-head .ph-av{
+    width:52px;height:52px;border-radius:50%; background:linear-gradient(145deg,var(--plum),var(--plum-deep));
+    display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Fraunces',serif;font-size:20px;
+  }
+  .profile-head .n{ font-family:'Fraunces',serif; font-size:17px; font-weight:500; }
+  .profile-head .s{ font-size:11.5px; color:var(--ink-soft); margin-top:2px; }
+  .profile-stats{ display:flex; gap:8px; padding:14px 18px 4px; }
+  .profile-menu-row{
+    margin:0 18px 10px; background:var(--card); border:1px solid var(--line); border-radius:14px;
+    display:flex; align-items:center; gap:11px; padding:12px 13px;
+  }
+  .profile-menu-row .pm-ic{
+    width:38px;height:38px; flex-shrink:0; padding:9.5px;
+    background:var(--paper-deep); border-radius:11px; color:var(--plum);
+  }
+  .profile-menu-row .pm-txt{ flex:1; font-size:13px; font-weight:600; }
+  .profile-menu-row .pm-arrow{ color:var(--ink-soft); }
+  .fav-chip-wrap{ padding:0 18px 14px; display:flex; gap:7px; flex-wrap:wrap; }
+  .danger-link{
+    margin:6px 18px 22px; text-align:center; color:#B0473F; font-size:12.5px; font-weight:600;
+  }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="splash" id="splash">
+    <div class="sp-mark">Salon Botanica</div>
+    <div class="sp-txt">Определяю тебя…</div>
+  </div>
+  <div class="tg-bar">
+    <div class="avatar" id="tgAvatar">С</div>
+    <div class="who">
+      <div class="name" id="tgName">Salon Botanica</div>
+      <div class="status" id="tgStatus">Telegram Mini App</div>
+    </div>
+    <div class="role-badge" data-action="open-role-switch" id="roleBadge">
+      <span class="rb-dot"></span><span id="roleBadgeLabel">Клиент</span><span class="rb-chev">▾</span>
+    </div>
+    <button class="bell-btn" data-action="open-notifications" id="bellBtn">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M6 10a6 6 0 0 1 12 0c0 4 1.4 5.4 1.4 5.4H4.6S6 14 6 10Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 19a2 2 0 0 0 4 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span class="bell-dot" id="bellDot"></span>
+    </button>
+  </div>
+
+  <!-- ================= HOME ================= -->
+  <div class="screen active" id="home">
+    <div class="home-hero">
+      <p class="greet">Привет, Аня <span>✦</span></p>
+      <p class="lede">Напиши мне как обычно — например «хочу завтра на маникюр вечером» — и я сама всё найду. Или жми на карточки ниже.</p>
+      <div class="ask-box">
+        <input id="homeAsk" placeholder="хочу завтра на маникюр вечером…">
+        <div class="send" id="homeAskSend" data-action="send-home">➤</div>
+      </div>
+    </div>
+
+    <div class="next-visit-card" id="nextVisitCard" data-action="nav" data-screen="bookings">
+      <div class="nv-top">
+        <div>
+          <div class="nv-lbl">Ближайшая запись</div>
+          <div class="nv-when">завтра, 19:00</div>
+          <div class="nv-svc">Маникюр · Оля</div>
+        </div>
+        <div style="color:var(--ink-soft);">›</div>
+      </div>
+    </div>
+
+    <div class="reco-card">
+      <div style="flex:1;">
+        <div class="rc-badge">Рекомендация AI</div>
+        <div class="rc-txt">Тебе подойдёт уход после окрашивания — твой оттенок держится дольше с ним.</div>
+      </div>
+      <button data-action="reco-add">Добавить</button>
+    </div>
+
+    <div class="quick-row">
+      <div class="quick-btn" data-action="repeat-last">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 1 1 3 6.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M4 17v-4h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div>Повторить<br>как в прошлый раз</div>
+      </div>
+      <div class="quick-btn" data-action="nav" data-screen="results">
+        <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="M8 14l2.5-3 2 2.2L16 9l3 5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+        <div>Результаты<br>До / После</div>
+      </div>
+      <div class="quick-btn" data-action="nav" data-screen="reviews">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 4.5l2.1 4.4 4.9.6-3.6 3.4.9 4.9-4.3-2.3-4.3 2.3.9-4.9-3.6-3.4 4.9-.6L12 4.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        <div>Отзывы</div>
+      </div>
+    </div>
+
+    <div class="grid-actions">
+      <div class="action-card hero" id="cardBook" data-action="go-chat">
+        <svg class="icn" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M3 12h18" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <div class="lbl">Записаться</div>
+        <div class="sub">AI подберёт время за секунды</div>
+      </div>
+      <div class="action-card two" id="cardMasters" data-action="nav" data-screen="masters">
+        <svg class="icn" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.4" stroke="currentColor" stroke-width="1.5"/><path d="M5 20c1.5-4 4.2-6 7-6s5.5 2 7 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <div class="lbl">Мастера</div>
+        <div class="sub">Портфолио и отзывы</div>
+      </div>
+      <div class="action-card three" id="cardServices" data-action="open-services">
+        <svg class="icn" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <div class="lbl">Услуги</div>
+        <div class="sub">Цены, длительность</div>
+      </div>
+    </div>
+    <div class="promo-strip" id="promoStrip" data-action="promo">
+      <div class="dot"></div>
+      <div class="txt">У Оли освободился <b>четверг 19:00</b> — обычно в это время у тебя окрашивание.</div>
+    </div>
+  </div>
+
+  <!-- ================= AI CHAT ================= -->
+  <div class="screen" id="chat">
+    <div class="chat-wrap" id="chatWrap">
+      <div class="bubble me">Хочу завтра на маникюр, ближе к вечеру</div>
+      <div class="bubble bot">Смотрю, что есть у Оли завтра вечером… 🔍</div>
+      <div class="bubble card">
+        <div class="slot-card-head">Нашла два варианта:</div>
+        <div class="slot-row">
+          <div class="who"><div class="av">О</div><div class="meta"><div class="t">Оля</div><div class="d">маникюр · 45 мин</div></div></div>
+          <button data-action="book" data-service="Маникюр" data-master="Оля" data-when="завтра, 19:00">19:00</button>
+        </div>
+        <div class="slot-row">
+          <div class="who"><div class="av">О</div><div class="meta"><div class="t">Оля</div><div class="d">маникюр · 45 мин</div></div></div>
+          <button data-action="book" data-service="Маникюр" data-master="Оля" data-when="завтра, 20:15">20:15</button>
+        </div>
+      </div>
+      <div class="bubble bot">Как обычно оплата на месте — просто подтверди время 🙂</div>
+    </div>
+    <p class="ai-hint">Попробуй написать что угодно — «стрижка в пятницу», «хочу к Маше» и т.д. Предпочитаешь без чата? <a href="#" data-action="nav" data-screen="manualBooking" style="color:var(--plum);font-weight:600;">Выбрать вручную →</a></p>
+    <div class="chat-input">
+      <input class="box" id="chatInput" placeholder="Написать сообщение…">
+      <div class="send" id="chatSend" data-action="send-chat">➤</div>
+    </div>
+  </div>
+
+  <!-- ================= ЗАПИСЬ ВРУЧНУЮ (пошагово) ================= -->
+  <div class="screen" id="manualBooking">
+    <div class="back-row"><button data-action="back">‹ Назад</button></div>
+    <div class="role-head" style="padding-top:8px;">
+      <div class="title">Запись вручную</div>
+      <div class="sub">Выбери всё по шагам — мы ничего не додумываем за тебя.</div>
+    </div>
+
+    <div class="sec-title">1. Категория</div>
+    <div class="chip-row">
+      <button class="chip active" data-action="mb-cat" data-cat="nails">Ногти</button>
+      <button class="chip" data-action="mb-cat" data-cat="hair">Волосы</button>
+      <button class="chip" data-action="mb-cat" data-cat="care">Уход</button>
+    </div>
+
+    <div class="sec-title">2. Услуга</div>
+    <div id="mbServiceList">
+      <div class="sheet-item" style="margin:0 18px 8px;" data-action="mb-pick-service" data-service="Маникюр" data-dur="45 мин" data-price="2 800 ₽">
+        <div class="si-info"><div><div class="si-name">Маникюр</div><div class="si-sub">45 мин · 2 800 ₽</div></div></div>
+        <button style="pointer-events:none;">Выбрать</button>
+      </div>
+      <div class="sheet-item" style="margin:0 18px 8px;" data-action="mb-pick-service" data-service="Маникюр с покрытием" data-dur="1 ч" data-price="3 400 ₽">
+        <div class="si-info"><div><div class="si-name">Маникюр с покрытием</div><div class="si-sub">1 ч · 3 400 ₽</div></div></div>
+        <button style="pointer-events:none;">Выбрать</button>
+      </div>
+    </div>
+
+    <div class="sec-title">3. Мастер</div>
+    <div class="chip-row">
+      <button class="chip active" data-action="mb-master" data-master="Любой свободный">Любой свободный</button>
+      <button class="chip" data-action="mb-master" data-master="Оля">Оля</button>
+      <button class="chip" data-action="mb-master" data-master="Маша">Маша</button>
+      <button class="chip" data-action="mb-master" data-master="Дима">Дима</button>
+    </div>
+
+    <div class="sec-title">4. Дата</div>
+    <div class="chip-row" id="mbDateRow">
+      <button class="chip active" data-action="mb-date" data-date="Сегодня">Сегодня</button>
+      <button class="chip" data-action="mb-date" data-date="Завтра">Завтра</button>
+      <button class="chip" data-action="mb-date" data-date="Ср 16 сент">Ср</button>
+      <button class="chip" data-action="mb-date" data-date="Чт 17 сент">Чт</button>
+      <button class="chip" data-action="mb-date" data-date="Пт 18 сент">Пт</button>
+    </div>
+
+    <div class="sec-title">5. Время</div>
+    <div class="chip-row" id="mbTimeRow">
+      <button class="chip active" data-action="mb-time" data-time="12:00">12:00</button>
+      <button class="chip" data-action="mb-time" data-time="14:30">14:30</button>
+      <button class="chip" data-action="mb-time" data-time="17:00">17:00</button>
+      <button class="chip" data-action="mb-time" data-time="19:00">19:00</button>
+    </div>
+
+    <div class="sec-title">6. Комментарий (необязательно)</div>
+    <textarea class="review-form" id="mbComment" placeholder="Например: «хочу форму balerina» или «есть аллергия на…»" style="width:calc(100% - 36px);margin:0 18px 6px;min-height:60px;resize:none;border:1px solid var(--line);border-radius:14px;padding:12px;font-family:'Work Sans',sans-serif;font-size:13px;background:var(--card);color:var(--ink);outline:none;"></textarea>
+
+    <button class="confirm-cta" style="margin:14px 18px 24px;width:calc(100% - 36px);" data-action="mb-confirm" id="mbConfirmBtn">Записаться — Маникюр, 2 800 ₽</button>
+  </div>
+
+  <!-- ================= MY BOOKINGS ================= -->
+  <div class="screen" id="bookings">
+    <div class="seg-tabs">
+      <button class="active" data-action="bk-tab" data-tab="upcoming">Предстоящие</button>
+      <button data-action="bk-tab" data-tab="past">Прошедшие</button>
+    </div>
+
+    <div id="bookingsUpcoming">
+      <div class="sec-title">Ближайшая запись</div>
+      <div class="booking-card" id="bookingCard">
+        <div class="top">
+          <div>
+            <div class="svc" id="bkSvc">Маникюр</div>
+            <div class="with" id="bkWith">Оля · филиал на Тверской</div>
+          </div>
+          <div class="when" id="bkWhen">завтра<b id="bkTime">19:00</b></div>
+        </div>
+        <div class="tags" id="bkTags">
+          <span class="tag good">Подтверждено</span>
+          <span class="tag">Оплата на месте</span>
+        </div>
+        <div class="booking-actions" id="bkActions">
+          <button class="ghost" data-action="reschedule">Перенести</button>
+          <button class="ghost" data-action="open-cancel-confirm">Отменить</button>
+        </div>
+        <div class="booking-actions" style="margin-top:8px;">
+          <button class="ghost" data-action="write-admin" style="width:100%;">Написать админу об этой записи</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="bookingsPast" style="display:none;">
+      <div class="sec-title">Прошедшие визиты</div>
+      <div class="booking-card">
+        <div class="top">
+          <div><div class="svc">Окрашивание</div><div class="with">Маша · 12 авг</div></div>
+        </div>
+        <div class="tags"><span class="tag good">Отзыв оставлен</span></div>
+        <div class="booking-actions">
+          <button class="ghost" data-action="repeat-past" data-service="Окрашивание" data-master="Маша">Повторить</button>
+        </div>
+      </div>
+      <div class="booking-card">
+        <div class="top">
+          <div><div class="svc">Маникюр</div><div class="with">Оля · 28 июл</div></div>
+        </div>
+        <div class="tags"><span class="tag">Без отзыва</span></div>
+        <div class="booking-actions">
+          <button class="ghost" data-action="open-review" data-service="Маникюр" data-master="Оля">Оставить отзыв</button>
+          <button class="ghost" data-action="repeat-past" data-service="Маникюр" data-master="Оля">Повторить</button>
+        </div>
+      </div>
+      <div class="booking-card">
+        <div class="top">
+          <div><div class="svc">Стрижка</div><div class="with">Дима · 03 июл</div></div>
+        </div>
+        <div class="tags"><span class="tag">Без отзыва</span></div>
+        <div class="booking-actions">
+          <button class="ghost" data-action="open-review" data-service="Стрижка" data-master="Дима">Оставить отзыв</button>
+          <button class="ghost" data-action="repeat-past" data-service="Стрижка" data-master="Дима">Повторить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= CONFIRM + DEPOSIT ================= -->
+  <div class="screen" id="confirm">
+    <div class="confirm-wrap">
+      <div class="confirm-card">
+        <p class="h">Подтверди запись</p>
+        <div class="confirm-line"><span class="k">Услуга</span><span class="v" id="cfSvc">Окрашивание, блонд</span></div>
+        <div class="confirm-line"><span class="k">Мастер</span><span class="v" id="cfMaster">Маша</span></div>
+        <div class="confirm-line"><span class="k">Когда</span><span class="v" id="cfWhen">Сб, 20 сент · 15:00</span></div>
+        <div class="confirm-line"><span class="k">Стоимость</span><span class="v" id="cfPrice">6 500 ₽</span></div>
+
+        <div class="deposit-note">
+          Забронируем <b>500 ₽</b> — просто чтобы окно точно осталось за тобой. Вернём при визите, спишем только если не придёшь и не предупредишь.
+        </div>
+      </div>
+      <button class="confirm-cta" id="confirmCta" data-action="confirm-cta">Подтвердить и забронировать</button>
+      <button class="ghost" id="addToCalBtn" data-action="add-to-calendar" style="display:none;width:100%;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:12px 0;border-radius:14px;font-size:13.5px;font-weight:600;margin-top:10px;">📅 Добавить в календарь</button>
+      <p class="confirm-fine">Можно отменить бесплатно за 4 часа до визита</p>
+    </div>
+  </div>
+
+  <!-- ================= ПРОФИЛЬ ================= -->
+  <div class="screen" id="profile">
+    <div class="profile-head">
+      <div class="ph-av">А</div>
+      <div>
+        <div class="n">Аня Смирнова</div>
+        <div class="s">Клиент с марта 2024 · +7 999 •••-12-34</div>
+      </div>
+    </div>
+    <div class="profile-stats">
+      <div class="stat-chip"><div class="num">12</div><div class="lbl">Визитов</div></div>
+      <div class="stat-chip"><div class="num">8 мес</div><div class="lbl">С нами</div></div>
+      <div class="stat-chip"><div class="num">4.9★</div><div class="lbl">Твои оценки</div></div>
+    </div>
+
+    <div class="sec-title">Быстрый доступ</div>
+    <div class="profile-menu-row" data-action="nav" data-screen="results">
+      <svg class="pm-ic" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="M8 14l2.5-3 2 2.2L16 9l3 5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      <div class="pm-txt">Результаты (До/После)</div><div class="pm-arrow">›</div>
+    </div>
+    <div class="profile-menu-row" data-action="nav" data-screen="reviews">
+      <svg class="pm-ic" viewBox="0 0 24 24" fill="none"><path d="M12 4.5l2.1 4.4 4.9.6-3.6 3.4.9 4.9-4.3-2.3-4.3 2.3.9-4.9-3.6-3.4 4.9-.6L12 4.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      <div class="pm-txt">Отзывы</div><div class="pm-arrow">›</div>
+    </div>
+    <div class="profile-menu-row" data-action="nav" data-screen="salonChat">
+      <svg class="pm-ic" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <div class="pm-txt">Чат с салоном</div><div class="pm-arrow">›</div>
+    </div>
+    <div class="profile-menu-row" data-action="bk-tab-past-from-profile">
+      <svg class="pm-ic" viewBox="0 0 24 24" fill="none"><rect x="4" y="5.5" width="16" height="14" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M4 10h16" stroke="currentColor" stroke-width="1.6"/></svg>
+      <div class="pm-txt">История посещений</div><div class="pm-arrow">›</div>
+    </div>
+
+    <div class="sec-title">Любимые мастера</div>
+    <div class="fav-chip-wrap">
+      <span class="chip active">Оля</span>
+      <span class="chip">Маша</span>
+    </div>
+    <div class="sec-title">Любимые услуги</div>
+    <div class="fav-chip-wrap">
+      <span class="chip active">Маникюр</span>
+      <span class="chip">Окрашивание</span>
+    </div>
+
+    <div class="settings-group" style="margin-top:8px;">
+      <div class="label">Тема оформления</div>
+      <div class="seg-tabs" id="themeSegTabs">
+        <button data-action="set-theme" data-mode="system">Системная</button>
+        <button data-action="set-theme" data-mode="light">Светлая</button>
+        <button data-action="set-theme" data-mode="dark">Тёмная</button>
+      </div>
+    </div>
+
+    <div class="settings-group" style="margin-top:8px;">
+      <div class="label">Согласия и данные</div>
+      <div class="settings-row">
+        <div><div class="t">Запоминать привычки</div><div class="d">Чтобы не переспрашивать одно и то же</div></div>
+        <div class="toggle" data-action="toggle" data-name="Запоминать привычки" data-on-msg="Хорошо, буду запоминать твои привычки" data-off-msg="Хорошо, больше не буду ничего запоминать"></div>
+      </div>
+      <div class="settings-row">
+        <div><div class="t">Персональные предложения</div><div class="d">Показывать акции под твои привычки</div></div>
+        <div class="toggle" data-action="toggle" data-name="Персональные предложения" data-on-msg="Включила персональные предложения" data-off-msg="Отключила персональные предложения"></div>
+      </div>
+      <div class="settings-row">
+        <div><div class="t">Помогать другим салонам платформы</div><div class="d">Обезличенно, без привязки к имени</div></div>
+        <div class="toggle off" data-action="toggle" data-name="Помогать платформе" data-on-msg="Спасибо! Обезличенные паттерны помогут точнее считать прогнозы на всей платформе" data-off-msg="Хорошо, твои данные останутся только в этом салоне"></div>
+      </div>
+      <div class="settings-row">
+        <div><div class="t">Push-уведомления</div><div class="d">Напоминания, ответы админа, акции</div></div>
+        <div class="toggle" data-action="toggle" data-name="Push-уведомления" data-on-msg="Включила уведомления" data-off-msg="Отключила уведомления"></div>
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="label">Твои данные</div>
+      <div class="link-row" id="showDataLink" data-action="show-data">Показать, что вы обо мне знаете →</div>
+    </div>
+    <div class="danger-link" id="deleteDataLink" data-action="open-delete">Удалить аккаунт</div>
+  </div>
+
+  <!-- ================= МАСТЕРА (список) ================= -->
+  <div class="screen" id="masters">
+    <div class="role-head"><div class="title">Мастера</div><div class="sub">6 специалистов · выбери по услуге или рейтингу</div></div>
+    <div class="chip-row">
+      <button class="chip active" data-action="filter-noop">Все</button>
+      <button class="chip" data-action="filter-noop">Ногти</button>
+      <button class="chip" data-action="filter-noop">Волосы</button>
+      <button class="chip" data-action="filter-noop">★ 4.8+</button>
+      <button class="chip" data-action="filter-noop">Свободна сегодня</button>
+    </div>
+    <div class="master-card" data-action="open-master" data-master="olya">
+      <div class="mc-av">О</div>
+      <div class="mc-mid"><div class="n">Оля</div><div class="spec">Маникюр, педикюр</div><div class="rating">★ 4.9 · 214 отзывов</div></div>
+      <div class="mc-arrow">›</div>
+    </div>
+    <div class="master-card" data-action="open-master" data-master="masha">
+      <div class="mc-av">М</div>
+      <div class="mc-mid"><div class="n">Маша</div><div class="spec">Окрашивание, стрижки</div><div class="rating">★ 4.8 · 176 отзывов</div></div>
+      <div class="mc-arrow">›</div>
+    </div>
+    <div class="master-card" data-action="open-master" data-master="dima">
+      <div class="mc-av">Д</div>
+      <div class="mc-mid"><div class="n">Дима</div><div class="spec">Стрижки, укладки</div><div class="rating">★ 5.0 · 98 отзывов</div></div>
+      <div class="mc-arrow">›</div>
+    </div>
+  </div>
+
+  <!-- ================= МАСТЕР: карточка ================= -->
+  <div class="screen" id="masterDetail">
+    <div class="back-row"><button data-action="back">‹ Назад</button></div>
+    <div class="md-header">
+      <div class="mc-av" id="mdAv">О</div>
+      <div><div class="n" id="mdName">Оля</div><div class="spec" id="mdSpec">Маникюр, педикюр</div><div class="rating" id="mdRating">★ 4.9 · 214 отзывов</div></div>
+    </div>
+    <div class="sec-title">Портфолио</div>
+    <div class="portfolio-grid">
+      <div class="pg-item" style="background:linear-gradient(150deg,#E7C9B4,#C89B7C);">маникюр</div>
+      <div class="pg-item" style="background:linear-gradient(150deg,#D9B8A9,#B98A4E);">nude</div>
+      <div class="pg-item" style="background:linear-gradient(150deg,#EAD3C3,#C49B7A);">френч</div>
+    </div>
+    <div class="sec-title">Ближайшие окна</div>
+    <div class="chip-row">
+      <button class="chip active" data-action="md-pick-time">19:00 сегодня</button>
+      <button class="chip" data-action="md-pick-time">12:00 завтра</button>
+      <button class="chip" data-action="md-pick-time">18:30 пт</button>
+    </div>
+    <div class="entry-card" data-action="master-reviews" id="mdReviewsEntry">
+      <div class="ec-ic"><svg viewBox="0 0 24 24" fill="none"><path d="M12 4.5l2.1 4.4 4.9.6-3.6 3.4.9 4.9-4.3-2.3-4.3 2.3.9-4.9-3.6-3.4 4.9-.6L12 4.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></div>
+      <div class="ec-mid"><div class="n" id="mdReviewsCount">214 отзывов</div><div class="s">Только отзывы об этом мастере</div></div>
+      <div class="ec-arrow">›</div>
+    </div>
+    <button class="md-cta" data-action="book-this-master" id="mdCta">Записаться к Оле</button>
+  </div>
+
+  <!-- ================= РЕЗУЛЬТАТЫ (До/После) ================= -->
+  <div class="screen" id="results">
+    <div class="role-head"><div class="title">Результаты</div><div class="sub">Реальные работы наших мастеров · нажми на фото, чтобы записаться на такое же</div></div>
+    <div class="chip-row">
+      <button class="chip active" data-action="results-filter" data-master="all">Все</button>
+      <button class="chip" data-action="results-filter" data-master="olya">Оля</button>
+      <button class="chip" data-action="results-filter" data-master="masha">Маша</button>
+      <button class="chip" data-action="results-filter" data-master="dima">Дима</button>
+    </div>
+    <div class="result-grid" id="resultGrid">
+      <div class="result-item" data-master="olya" data-service="Маникюр">
+        <div class="ri-img" data-action="open-result" style="background:linear-gradient(150deg,#E7C9B4,#C89B7C);">маникюр · Оля</div>
+        <div class="ri-foot"><span class="who">Оля</span><span class="ri-like" data-action="like-result">♡ 24</span></div>
+      </div>
+      <div class="result-item" data-master="masha" data-service="Окрашивание">
+        <div class="ri-img" data-action="open-result" style="background:linear-gradient(150deg,#D9C2A6,#9C6B3E);">окрашивание · Маша</div>
+        <div class="ri-foot"><span class="who">Маша</span><span class="ri-like" data-action="like-result">♡ 41</span></div>
+      </div>
+      <div class="result-item" data-master="dima" data-service="Стрижка">
+        <div class="ri-img" data-action="open-result" style="background:linear-gradient(150deg,#EAD3C3,#C49B7A);">стрижка · Дима</div>
+        <div class="ri-foot"><span class="who">Дима</span><span class="ri-like" data-action="like-result">♡ 17</span></div>
+      </div>
+      <div class="result-item" data-master="olya" data-service="Педикюр">
+        <div class="ri-img" data-action="open-result" style="background:linear-gradient(150deg,#DCC6B0,#AD8358);">педикюр · Оля</div>
+        <div class="ri-foot"><span class="who">Оля</span><span class="ri-like" data-action="like-result">♡ 9</span></div>
+      </div>
+    </div>
+    <p class="ai-hint" id="resultsEmpty" style="display:none;">У этого мастера пока нет работ в галерее.</p>
+  </div>
+
+  <!-- ================= ОТЗЫВЫ ================= -->
+  <div class="screen" id="reviews">
+    <div class="back-row" id="reviewsBackRow"><button data-action="back">‹ Назад</button></div>
+    <div class="role-head"><div class="title" id="reviewsTitle">Отзывы</div><div class="sub" id="reviewsSub">127 отзывов клиентов салона</div></div>
+    <div class="chip-row" id="reviewsChipRow">
+      <button class="chip active" data-action="reviews-filter" data-master="all">Все</button>
+      <button class="chip" data-action="reviews-filter" data-master="olya">Оля</button>
+      <button class="chip" data-action="reviews-filter" data-master="masha">Маша</button>
+      <button class="chip" data-action="reviews-filter" data-master="dima">Дима</button>
+    </div>
+    <div id="reviewsList"></div>
+    <button class="md-cta" data-action="nav" data-screen="writeReview">Оставить отзыв</button>
+  </div>
+
+  <!-- ================= НАПИСАТЬ ОТЗЫВ ================= -->
+  <div class="screen" id="writeReview">
+    <div class="back-row"><button data-action="back">‹ Назад</button></div>
+    <div class="role-head" style="padding-top:8px;"><div class="title">Твой отзыв</div><div class="sub">Маникюр · Оля · 28 июля</div></div>
+    <div class="star-pick" id="starPick">
+      <span class="st on" data-action="pick-star" data-n="1">★</span>
+      <span class="st on" data-action="pick-star" data-n="2">★</span>
+      <span class="st on" data-action="pick-star" data-n="3">★</span>
+      <span class="st on" data-action="pick-star" data-n="4">★</span>
+      <span class="st on" data-action="pick-star" data-n="5">★</span>
+    </div>
+    <textarea id="reviewText" placeholder="Расскажи, как всё прошло…"></textarea>
+    <div class="add-photo-row"><div class="ap-box" data-action="add-photo-noop">+</div></div>
+    <button class="submit-review-btn" data-action="submit-review">Опубликовать отзыв</button>
+  </div>
+
+  <!-- ================= ЧАТ С САЛОНОМ ================= -->
+  <div class="screen" id="salonChat">
+    <div class="back-row"><button data-action="back">‹ Назад</button></div>
+    <div class="chat-wrap" id="salonChatWrap">
+      <div class="bubble bot">Привет! Это Настя, администратор. Чем помочь?</div>
+    </div>
+    <div class="quick-reply-row">
+      <button class="quick-reply" data-action="salon-quick" data-text="Хочу перенести запись">Хочу перенести</button>
+      <button class="quick-reply" data-action="salon-quick" data-text="Вопрос по услуге">Вопрос по услуге</button>
+      <button class="quick-reply" data-action="salon-quick" data-text="Проблема с записью">Проблема с записью</button>
+    </div>
+    <div class="chat-input">
+      <input class="box" id="salonChatInput" placeholder="Написать администратору…">
+      <div class="send" data-action="send-salon-chat">➤</div>
+    </div>
+  </div>
+
+  <!-- ================= MASTER: Главная ================= -->
+  <div class="screen" id="masterHome">
+    <div class="role-head">
+      <div class="kicker">Мастер</div>
+      <div class="title">Привет, Оля</div>
+      <div class="sub">Вот твоя запись на сегодня — 6 из 8 окон занято.</div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-chip"><div class="num">6/8</div><div class="lbl">Загрузка сегодня</div></div>
+      <div class="stat-chip"><div class="num">4 200 ₽</div><div class="lbl">Средний чек</div></div>
+      <div class="stat-chip"><div class="num">★4.9</div><div class="lbl">Рейтинг</div></div>
+    </div>
+    <div class="sec-title">Сегодня</div>
+    <div class="agenda-item"><div class="ai-time">12:00</div><div class="ai-mid"><div class="n">Аня К.</div><div class="s">Маникюр · 45 мин</div></div></div>
+    <div class="agenda-item"><div class="ai-time">14:30</div><div class="ai-mid"><div class="n">Света П.</div><div class="s">Маникюр + покрытие · 1 ч</div></div></div>
+    <div class="agenda-item"><div class="ai-time">19:00</div><div class="ai-mid"><div class="n">Свободно</div><div class="s">Можно предложить из waitlist</div></div></div>
+    <div class="settings-group" style="margin-top:6px;">
+      <div class="settings-row" style="border-radius:14px;">
+        <div><div class="t">Готова взять доп. клиентов сегодня</div><div class="d">Мы предложим твои свободные окна из листа ожидания</div></div>
+        <div class="toggle" data-action="toggle" data-name="Доп. клиенты" data-on-msg="Хорошо, будем предлагать твои окна из waitlist" data-off-msg="Больше не будем добавлять тебе клиентов сегодня"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= ADMIN: Главная ================= -->
+  <div class="screen" id="adminHome">
+    <div class="role-head">
+      <div class="kicker">Администратор</div>
+      <div class="title">Смена сегодня</div>
+      <div class="sub">Настя, вот что нужно держать в поле зрения.</div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-chip"><div class="num">14</div><div class="lbl">Записей сегодня</div></div>
+      <div class="stat-chip"><div class="num">2</div><div class="lbl">Отмены</div></div>
+      <div class="stat-chip"><div class="num">5</div><div class="lbl">В waitlist</div></div>
+    </div>
+    <div class="alert-card">
+      <b>Высокий риск неявки</b> — Иванова М., окрашивание сегодня в 18:00 (не подтвердила запись).
+      <div class="aa">
+        <button class="primary" data-action="admin-remind">Отправить напоминание</button>
+        <button class="ghost" data-action="admin-dismiss-alert">Пропустить</button>
+      </div>
+    </div>
+    <div class="sec-title">Ближайшие свободные окна</div>
+    <div class="agenda-item"><div class="ai-time">16:00</div><div class="ai-mid"><div class="n">Дима</div><div class="s">Стрижка · свободно</div></div></div>
+    <div class="agenda-item"><div class="ai-time">19:00</div><div class="ai-mid"><div class="n">Оля</div><div class="s">Маникюр · свободно</div></div></div>
+    <div class="lock-note">Финансовые отчёты и лимиты скидок видит только владелец — это не скрыто от тебя специально, просто вне зоны администратора.</div>
+  </div>
+
+  <!-- ================= OWNER: Главная ================= -->
+  <div class="screen" id="ownerHome">
+    <div class="role-head">
+      <div class="kicker">Владелец</div>
+      <div class="title">Salon Botanica</div>
+      <div class="sub">Коротко за сегодня — подробности в аналитике.</div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-chip"><div class="num">84 200 ₽</div><div class="lbl">Выручка сегодня</div></div>
+      <div class="stat-chip"><div class="num">3.9М</div><div class="lbl">Прогноз месяца</div></div>
+      <div class="stat-chip"><div class="num">92%</div><div class="lbl">Загрузка</div></div>
+    </div>
+    <div class="sec-title">Управление</div>
+    <div class="entry-card" data-action="nav" data-screen="ownerTeam">
+      <div class="ec-ic"><svg viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="2.6" stroke="currentColor" stroke-width="1.6"/><circle cx="16" cy="9" r="2.1" stroke="currentColor" stroke-width="1.6"/><path d="M3.5 19c.7-3 3-4.6 5.5-4.6s4.8 1.6 5.5 4.6M14.5 14.8c2 .2 3.6 1.6 4.2 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+      <div class="ec-mid"><div class="n">Команда</div><div class="s">3 сотрудника · пригласить / отозвать</div></div>
+      <div class="ec-arrow">›</div>
+    </div>
+    <div class="entry-card" data-action="open-rules-stub">
+      <div class="ec-ic"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3.5 5 6.5v5.2c0 4.2 2.9 7 7 8.8 4.1-1.8 7-4.6 7-8.8V6.5L12 3.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+      <div class="ec-mid"><div class="n">Правила и лимиты</div><div class="s">Скидки, депозиты, автопилот</div></div>
+      <div class="ec-arrow">›</div>
+    </div>
+    <div class="lock-note">Эти два раздела видишь и меняешь только ты — сотрудники их даже не видят в своём меню.</div>
+  </div>
+
+  <!-- ================= OWNER: Команда ================= -->
+  <div class="screen" id="ownerTeam">
+    <div class="role-head">
+      <div class="kicker">Владелец</div>
+      <div class="title">Команда</div>
+      <div class="sub">Доступ выдаётся ссылкой-приглашением, а не паролем — отозвать можно мгновенно.</div>
+    </div>
+    <div class="sec-title">Сотрудники</div>
+    <div id="staffList">
+      <div class="staff-row" data-staff="olya">
+        <div class="sr-av">О</div>
+        <div class="sr-mid"><div class="n">Оля</div><span class="role-tag master">Мастер</span></div>
+        <button class="sr-revoke" data-action="revoke-staff" data-staff="olya">Отозвать</button>
+      </div>
+      <div class="staff-row" data-staff="masha">
+        <div class="sr-av">М</div>
+        <div class="sr-mid"><div class="n">Маша</div><span class="role-tag master">Мастер</span></div>
+        <button class="sr-revoke" data-action="revoke-staff" data-staff="masha">Отозвать</button>
+      </div>
+      <div class="staff-row" data-staff="nastya">
+        <div class="sr-av">Н</div>
+        <div class="sr-mid"><div class="n">Настя</div><span class="role-tag admin">Администратор</span></div>
+        <button class="sr-revoke" data-action="revoke-staff" data-staff="nastya">Отозвать</button>
+      </div>
+    </div>
+    <button class="add-staff-btn" data-action="open-invite">+ Пригласить сотрудника</button>
+    <div class="lock-note">Владельцем нельзя стать через этого бота — эта роль назначается один раз при регистрации салона на платформе.</div>
+  </div>
+
+  <!-- ================= ROLE SETTINGS (generic, контент через JS) ================= -->
+  <div class="screen" id="roleSettings">
+    <div class="role-head">
+      <div class="kicker" id="rsKicker">Роль</div>
+      <div class="title" id="rsTitle">Настройки</div>
+      <div class="sub" id="rsSub">—</div>
+    </div>
+    <div class="lock-note" id="rsLock" style="margin-top:14px;"></div>
+  </div>
+
+  <div class="bottom-nav" id="bottomNav">
+    <button class="nav-btn active" data-action="nav" data-screen="home">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 11.5 12 4l8 7.5" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 10v9h12v-9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="nlbl">Главная</span>
+    </button>
+    <button class="nav-btn" data-action="nav" data-screen="chat">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h9" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span class="nlbl">AI-запись</span>
+    </button>
+    <button class="nav-btn" data-action="nav" data-screen="bookings">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5.5" width="16" height="14" rx="2.5" stroke-width="1.6"/><path d="M4 10h16M8 3.5v3M16 3.5v3" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span class="nlbl">Записи</span>
+    </button>
+    <button class="nav-btn" data-action="nav" data-screen="confirm">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 3.5 5 6.5v5.2c0 4.2 2.9 7 7 8.8 4.1-1.8 7-4.6 7-8.8V6.5L12 3.5Z" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="nlbl">Бронь</span>
+    </button>
+    <button class="nav-btn" data-action="nav" data-screen="settings">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke-width="1.6"/><path d="M4 12h2M18 12h2M12 4v2M12 18v2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span class="nlbl">Настройки</span>
+    </button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="sheet-overlay" id="sheetOverlay" data-action="overlay-bg">
+    <div class="sheet">
+      <div class="sheet-handle" data-action="close-sheet"></div>
+      <div class="sheet-title" id="sheetTitle">Заголовок</div>
+      <div class="sheet-body" id="sheetBody"></div>
+      <button class="sheet-close" data-action="close-sheet">Закрыть</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', init);
+// на случай если скрипт выполняется после того, как DOMContentLoaded уже прошёл
+if(document.readyState !== 'loading'){ init(); }
+
+let inited = false;
+function init(){
+  if(inited) return; inited = true;
+
+  /* ---------- тема оформления: системная / светлая / тёмная ---------- */
+  const THEME_HEADER_COLOR = { light:'#F7EFE6', dark:'#221A17' };
+  function resolveSystemTheme(){
+    if(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.colorScheme){
+      return window.Telegram.WebApp.colorScheme === 'dark' ? 'dark' : 'light';
+    }
+    return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  }
+  function applyTheme(mode){
+    try{ localStorage.setItem('salon_theme_mode', mode); }catch(e){}
+    const effective = (mode === 'system') ? resolveSystemTheme() : mode;
+    document.documentElement.setAttribute('data-theme', effective);
+    document.documentElement.setAttribute('data-theme-mode', mode);
+    try{
+      if(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.setHeaderColor){
+        window.Telegram.WebApp.setHeaderColor(THEME_HEADER_COLOR[effective]);
+        window.Telegram.WebApp.setBackgroundColor(THEME_HEADER_COLOR[effective]);
+      }
+    }catch(e){}
+    document.querySelectorAll('[data-action="set-theme"]').forEach(function(b){
+      b.classList.toggle('active', b.dataset.mode === mode);
+    });
+  }
+  function currentThemeMode(){
+    try{ return localStorage.getItem('salon_theme_mode') || 'system'; }catch(e){ return 'system'; }
+  }
+
+  /* ---------- интеграция с Telegram Web App SDK (безопасно работает и вне Telegram) ---------- */
+  try{
+    if(window.Telegram && window.Telegram.WebApp){
+      const tg = window.Telegram.WebApp;
+      document.body.classList.add('in-telegram');
+      tg.ready();
+      tg.expand();
+      if(tg.requestFullscreen){ try{ tg.requestFullscreen(); }catch(e){} }
+      if(tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+      if(tg.BackButton){
+        tg.BackButton.onClick(function(){ window.goBack(); });
+      }
+      if(tg.onEvent){
+        tg.onEvent('themeChanged', function(){
+          if(currentThemeMode() === 'system') applyTheme('system');
+        });
+      }
+    }
+    if(window.matchMedia){
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(){
+        if(currentThemeMode() === 'system') applyTheme('system');
+      });
+    }
+  } catch(e){ /* не в Telegram или старая версия клиента — просто открываем как обычную страницу */ }
+  applyTheme(currentThemeMode());
+
+  /* ---------- роли: иконки, конфиг навигации, переключение ---------- */
+  const ICONS = {
+    home: '<path d="M4 11.5 12 4l8 7.5" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 10v9h12v-9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+    chat: '<path d="M4 6h16M4 12h16M4 18h9" stroke-width="1.6" stroke-linecap="round"/>',
+    list: '<rect x="4" y="5.5" width="16" height="14" rx="2.5" stroke-width="1.6"/><path d="M4 10h16M8 3.5v3M16 3.5v3" stroke-width="1.6" stroke-linecap="round"/>',
+    shield: '<path d="M12 3.5 5 6.5v5.2c0 4.2 2.9 7 7 8.8 4.1-1.8 7-4.6 7-8.8V6.5L12 3.5Z" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+    gear: '<circle cx="12" cy="12" r="3" stroke-width="1.6"/><path d="M4 12h2M18 12h2M12 4v2M12 18v2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4" stroke-width="1.6" stroke-linecap="round"/>',
+    team: '<circle cx="9" cy="8" r="2.6" stroke-width="1.6"/><circle cx="16" cy="9" r="2.1" stroke-width="1.6"/><path d="M3.5 19c.7-3 3-4.6 5.5-4.6s4.8 1.6 5.5 4.6M14.5 14.8c2 .2 3.6 1.6 4.2 4" stroke-width="1.6" stroke-linecap="round"/>',
+    user: '<circle cx="12" cy="8" r="3.4" stroke-width="1.6"/><path d="M5 20c1.5-4 4.2-6 7-6s5.5 2 7 6" stroke-width="1.6" stroke-linecap="round"/>'
+  };
+  function iconSvg(name){ return '<svg viewBox="0 0 24 24" fill="none">' + ICONS[name] + '</svg>'; }
+
+  const NAV_CONFIG = {
+    client: [
+      {screen:'home', icon:'home', label:'Главная'},
+      {screen:'chat', icon:'chat', label:'Запись'},
+      {screen:'bookings', icon:'list', label:'Мои записи'},
+      {screen:'masters', icon:'user', label:'Мастера'},
+      {screen:'profile', icon:'user', label:'Профиль'}
+    ],
+    master: [
+      {screen:'masterHome', icon:'home', label:'Главная'},
+      {screen:'roleSettings', icon:'gear', label:'Настройки'}
+    ],
+    admin: [
+      {screen:'adminHome', icon:'home', label:'Главная'},
+      {screen:'roleSettings', icon:'gear', label:'Настройки'}
+    ],
+    owner: [
+      {screen:'ownerHome', icon:'home', label:'Главная'},
+      {screen:'ownerTeam', icon:'team', label:'Команда'},
+      {screen:'roleSettings', icon:'gear', label:'Настройки'}
+    ]
+  };
+  const ROLE_META = {
+    client: {label:'Клиент', avatar:'А', status:'Telegram Mini App', name:'Salon Botanica', home:'home'},
+    master: {label:'Мастер · Оля', avatar:'О', status:'Панель мастера', name:'Salon Botanica · Мастер', home:'masterHome'},
+    admin: {label:'Администратор', avatar:'Н', status:'Панель администратора', name:'Salon Botanica · Админ', home:'adminHome'},
+    owner: {label:'Владелец', avatar:'В', status:'Панель владельца', name:'Salon Botanica · Владелец', home:'ownerHome'}
+  };
+  let currentRole = 'client';
+
+  function renderNav(role){
+    const nav = document.getElementById('bottomNav');
+    const buttonsHtml = NAV_CONFIG[role].map(function(it, idx){
+      return '<button class="nav-btn' + (idx===0?' active':'') + '" data-action="nav" data-screen="' + it.screen + '">' +
+        iconSvg(it.icon) + '<span class="nlbl">' + it.label + '</span></button>';
+    }).join('');
+    nav.innerHTML = '<span class="nav-pill" id="navPill"></span>' + buttonsHtml;
+    positionNavPill(true);
+  }
+
+  let navDragActive = false;
+  function positionNavPill(instant, force){
+    if(navDragActive && !force) return; // во время жеста позицией управляет сам палец, не авто-переход
+    const activeBtn = document.querySelector('#bottomNav .nav-btn.active');
+    const pill = document.getElementById('navPill');
+    const nav = document.getElementById('bottomNav');
+    if(!activeBtn || !pill || !nav) return;
+    const navRect = nav.getBoundingClientRect();
+    const btnRect = activeBtn.getBoundingClientRect();
+    const left = btnRect.left - navRect.left;
+    if(instant){
+      pill.style.transition = 'none';
+      pill.style.width = btnRect.width + 'px';
+      pill.style.transform = 'translateX(' + left + 'px)';
+      pill.offsetHeight; /* форсируем reflow перед возвратом transition */
+      pill.style.transition = '';
+    } else {
+      /* во время драга на пилюлю могла остаться инлайн transition:none —
+         явно фиксируем текущее положение БЕЗ анимации как стартовую точку,
+         и только потом включаем transition обратно, иначе браузер схлопнёт
+         оба изменения в одно и анимации не будет вообще */
+      pill.style.transition = 'none';
+      pill.offsetHeight;
+      pill.style.transition = '';
+      pill.style.width = btnRect.width + 'px';
+      pill.style.transform = 'translateX(' + left + 'px)';
+    }
+  }
+  window.addEventListener('resize', function(){ positionNavPill(true); });
+
+  /* ---------- свайп по нижней навигации без отрыва пальца ---------- */
+  (function setupNavSwipe(){
+    const nav = document.getElementById('bottomNav');
+    let dragging = false;
+    let lastScreen = null;
+
+    function screenUnderX(x){
+      const btns = nav.querySelectorAll('.nav-btn');
+      for(let i = 0; i < btns.length; i++){
+        const r = btns[i].getBoundingClientRect();
+        if(x >= r.left && x <= r.right){ return btns[i].dataset.screen; }
+      }
+      return null;
+    }
+    function followFinger(clientX){
+      // пилюля непрерывно следует за пальцем 1:1, без CSS-анимации —
+      // именно отсутствие transition тут и убирает рывки
+      const pill = document.getElementById('navPill');
+      if(!pill) return;
+      const navRect = nav.getBoundingClientRect();
+      const pillWidth = pill.getBoundingClientRect().width || 60;
+      const pad = 6;
+      let left = clientX - navRect.left - pillWidth / 2;
+      const min = pad, max = navRect.width - pad - pillWidth;
+      if(left < min) left = min;
+      if(left > max) left = max;
+      pill.style.transition = 'none';
+      pill.style.transform = 'translateX(' + left + 'px)';
+    }
+    function handlePointer(e){
+      followFinger(e.clientX);
+      const target = screenUnderX(e.clientX);
+      if(target && target !== lastScreen){
+        lastScreen = target;
+        window.goToScreenReset(target);
+        if(window.navigator && window.navigator.vibrate){ try{ window.navigator.vibrate(4); }catch(err){} }
+      }
+    }
+    nav.addEventListener('pointerdown', function(e){
+      dragging = true;
+      navDragActive = true;
+      lastScreen = null;
+      try{ nav.setPointerCapture(e.pointerId); }catch(err){}
+      handlePointer(e);
+    });
+    nav.addEventListener('pointermove', function(e){
+      if(!dragging) return;
+      handlePointer(e);
+    });
+    function endDrag(e){
+      dragging = false;
+      navDragActive = false;
+      try{ nav.releasePointerCapture(e.pointerId); }catch(err){}
+      positionNavPill(false, true); // один плавный доезд точно под активную кнопку
+    }
+    nav.addEventListener('pointerup', endDrag);
+    nav.addEventListener('pointercancel', endDrag);
+  })();
+
+  function renderRoleSettings(role){
+    const kicker = document.getElementById('rsKicker');
+    const title = document.getElementById('rsTitle');
+    const sub = document.getElementById('rsSub');
+    const lock = document.getElementById('rsLock');
+    if(role === 'master'){
+      kicker.textContent = 'Мастер · Оля';
+      title.textContent = 'Твой доступ';
+      sub.textContent = 'Ты видишь своё расписание, своих клиентов и свой профиль.';
+      lock.textContent = 'Расписание других мастеров, финансы салона и правила скидок недоступны — это не про недоверие, просто вне твоей роли.';
+    } else if(role === 'admin'){
+      kicker.textContent = 'Администратор · Настя';
+      title.textContent = 'Твой доступ';
+      sub.textContent = 'Ты видишь расписание всех мастеров, клиентов, отмены и waitlist.';
+      lock.textContent = 'Финансовые отчёты, лимиты скидок и управление командой видит только владелец.';
+    } else if(role === 'owner'){
+      kicker.textContent = 'Владелец';
+      title.textContent = 'Полный доступ';
+      sub.textContent = 'Ты единственный, кто может менять правила и управлять доступом команды.';
+      lock.textContent = 'Совет: включи двухфакторную защиту в самом Telegram — это единственное, что защищает вход именно в твой аккаунт.';
+    } else {
+      kicker.textContent = 'Клиент';
+      title.textContent = 'Настройки';
+      sub.textContent = '';
+      lock.textContent = '';
+    }
+  }
+
+  window.setRole = function(role){
+    currentRole = role;
+    const meta = ROLE_META[role];
+    document.getElementById('roleBadgeLabel').textContent = meta.label;
+    document.getElementById('tgAvatar').textContent = meta.avatar;
+    document.getElementById('tgName').textContent = meta.name;
+    document.getElementById('tgStatus').textContent = meta.status;
+    renderNav(role);
+    renderRoleSettings(role);
+    goToScreenReset(meta.home);
+  };
+
+  function roleSwitchSheetHtml(){
+    return '' +
+      '<div class="sheet-fact" style="text-align:left;">Переключение только для этого макета. В реальном приложении роль определяется автоматически по Telegram ID — окна выбора роли никто никогда не увидит.</div>' +
+      '<div class="sheet-item"><div class="si-info"><div class="si-av">А</div><div><div class="si-name">Клиент</div><div class="si-sub">Обычный посетитель</div></div></div><button data-action="pick-role" data-role="client">Смотреть</button></div>' +
+      '<div class="sheet-item"><div class="si-info"><div class="si-av">О</div><div><div class="si-name">Мастер</div><div class="si-sub">Своё расписание</div></div></div><button data-action="pick-role" data-role="master">Смотреть</button></div>' +
+      '<div class="sheet-item"><div class="si-info"><div class="si-av">Н</div><div><div class="si-name">Администратор</div><div class="si-sub">Операционка салона</div></div></div><button data-action="pick-role" data-role="admin">Смотреть</button></div>' +
+      '<div class="sheet-item"><div class="si-info"><div class="si-av">В</div><div><div class="si-name">Владелец</div><div class="si-sub">Полный доступ, команда</div></div></div><button data-action="pick-role" data-role="owner">Смотреть</button></div>';
+  }
+
+  /* ---------- владелец: приглашения и команда ---------- */
+  let inviteInterval = null;
+  function inviteRolePickHtml(){
+    return '' +
+      '<div class="sheet-fact" style="text-align:left;">Выбери роль — сгенерируем одноразовую ссылку на 15 минут. Сотрудник просто откроет её своим Telegram.</div>' +
+      '<div class="invite-role-pick">' +
+        '<button data-action="gen-invite" data-role="master">Мастер</button>' +
+        '<button data-action="gen-invite" data-role="admin">Администратор</button>' +
+      '</div>';
+  }
+  function inviteGeneratedHtml(role, code){
+    const label = role === 'master' ? 'Мастер' : 'Администратор';
+    return '' +
+      '<div class="invite-box">' +
+        '<div style="font-size:12px;color:var(--ink-soft);">Приглашение · роль «' + label + '»</div>' +
+        '<div class="invite-code">' + code + '</div>' +
+        '<div class="invite-timer" id="inviteTimer">Действует 15:00</div>' +
+        '<button class="invite-copy" data-action="copy-invite">Скопировать ссылку</button>' +
+      '</div>' +
+      '<div class="sheet-fact" style="margin-top:10px;">Кто первый откроет ссылку своим Telegram — тот и получит роль «' + label + '». Ссылка одноразовая и сгорит через 15 минут.</div>';
+  }
+  function startInviteCountdown(){
+    let secs = 15 * 60;
+    clearInterval(inviteInterval);
+    inviteInterval = setInterval(function(){
+      secs -= 1;
+      const el = document.getElementById('inviteTimer');
+      if(!el){ clearInterval(inviteInterval); return; }
+      const m = Math.floor(secs / 60), s = secs % 60;
+      el.textContent = 'Действует ' + m + ':' + (s < 10 ? '0' : '') + s;
+      if(secs <= 0){ clearInterval(inviteInterval); el.textContent = 'Ссылка истекла'; }
+    }, 1000);
+  }
+
+
+  window.showToast = function(msg, ms){
+    ms = ms || 2400;
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(function(){ t.classList.remove('show'); }, ms);
+  };
+
+  /* ---------- навигация между экранами ---------- */
+  let screenHistory = [];
+  let currentRootScreen = null;
+  function switchScreen(id){
+    // если id — не пункт нижней навигации (вложенный экран), подсвечиваем
+    // тот таб, из которого реально начался этот путь, а не гасим пилюлю
+    const isTabScreen = !!document.querySelector('.nav-btn[data-screen="' + id + '"]');
+    const activeTabId = isTabScreen ? id : currentRootScreen;
+    document.querySelectorAll('.nav-btn').forEach(function(b){
+      b.classList.toggle('active', b.dataset.screen === activeTabId);
+    });
+    document.querySelectorAll('.screen').forEach(function(s){
+      s.classList.toggle('active', s.id === id);
+    });
+    if(id === 'chat'){ replayChat(); }
+    positionNavPill(false);
+    updateBackUI();
+  }
+  window.goToScreen = function(id){
+    const current = document.querySelector('.screen.active');
+    if(current && current.id !== id){ screenHistory.push(current.id); }
+    switchScreen(id);
+  };
+  window.goToScreenReset = function(id){
+    screenHistory = [];
+    currentRootScreen = id;
+    switchScreen(id);
+  };
+  window.goBack = function(){
+    const prev = screenHistory.pop();
+    if(prev){ switchScreen(prev); }
+    else { switchScreen(ROLE_META[currentRole].home); }
+  };
+  function updateBackUI(){
+    const hasHistory = screenHistory.length > 0;
+    try{
+      if(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.BackButton){
+        if(hasHistory){ window.Telegram.WebApp.BackButton.show(); }
+        else{ window.Telegram.WebApp.BackButton.hide(); }
+      }
+    }catch(e){}
+    document.querySelectorAll('.back-row').forEach(function(row){
+      row.style.display = hasHistory ? '' : 'none';
+    });
+  }
+  function replayChat(){
+    const wrap = document.getElementById('chatWrap');
+    wrap.querySelectorAll('.bubble').forEach(function(b){
+      b.style.animation = 'none'; b.offsetHeight; b.style.animation = '';
+    });
+    wrap.scrollTop = wrap.scrollHeight;
+  }
+
+  /* ---------- bottom sheet ---------- */
+  window.openSheet = function(title, html){
+    document.getElementById('sheetTitle').textContent = title;
+    document.getElementById('sheetBody').innerHTML = html;
+    document.getElementById('sheetOverlay').classList.add('show');
+  };
+  window.closeSheet = function(){
+    document.getElementById('sheetOverlay').classList.remove('show');
+    clearInterval(inviteInterval);
+  };
+
+  /* ---------- контент листов ---------- */
+  function servicesSheetHtml(){
+    return '' +
+      '<div class="sheet-item"><div class="si-info"><div><div class="si-name">Маникюр</div><div class="si-sub">45 мин · 2 800 ₽</div></div></div>' +
+      '<button data-action="pick-service" data-service="маникюр">Выбрать</button></div>' +
+      '<div class="sheet-item"><div class="si-info"><div><div class="si-name">Окрашивание, блонд</div><div class="si-sub">2.5 ч · 6 500 ₽</div></div></div>' +
+      '<button data-action="pick-service" data-service="окрашивание">Выбрать</button></div>' +
+      '<div class="sheet-item"><div class="si-info"><div><div class="si-name">Стрижка</div><div class="si-sub">40 мин · 2 200 ₽</div></div></div>' +
+      '<button data-action="pick-service" data-service="стрижку">Выбрать</button></div>';
+  }
+  function factsSheetHtml(){
+    return '' +
+      '<div class="sheet-fact">8 из 9 последних визитов — вечером после 18:00</div>' +
+      '<div class="sheet-fact">Чаще всего выбираешь Олю (маникюр)</div>' +
+      '<div class="sheet-fact">Обычно приходишь раз в 30–35 дней</div>' +
+      '<div class="sheet-fact">Ни разу не соглашалась на допродажу ухода — больше не предлагаю</div>';
+  }
+  function deleteSheetHtml(){
+    return '' +
+      '<div class="sheet-fact">Мы удалим историю визитов, привычки и предпочтения из этого салона. Записи в CRM салона останутся — это отдельная система.</div>' +
+      '<div class="confirm-bar"><button class="no" data-action="delete-no">Отмена</button><button class="yes" data-action="delete-yes">Удалить</button></div>';
+  }
+  function resultDetailHtml(bg, m, service, likeText, liked){
+    return '' +
+      '<div style="border-radius:16px;overflow:hidden;margin-bottom:12px;">' +
+        '<div style="aspect-ratio:1;background:' + bg + ';display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;text-align:center;padding:10px;">' + service + ' · ' + m.name + '</div>' +
+      '</div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">' +
+        '<div style="font-size:12.5px;color:var(--ink-soft);">Мастер: <b style="color:var(--ink);">' + m.name + '</b></div>' +
+        '<span class="ri-like' + (liked ? ' liked' : '') + '" data-action="like-result">' + likeText + '</span>' +
+      '</div>' +
+      '<button class="invite-copy" data-action="want-same-specific" data-mastername="' + m.name + '" data-service="' + service + '">Хочу так же — записаться к ' + m.dative + '</button>';
+  }
+
+  /* ---------- запись/бронирование: общее состояние ---------- */
+  function setBooking(service, master, when){
+    document.getElementById('bkSvc').textContent = service;
+    document.getElementById('bkWith').textContent = master + ' · филиал на Тверской';
+    const parts = when.split(', ');
+    const dayPart = parts[0] || when;
+    const timePart = parts[1] || '';
+    document.getElementById('bkWhen').innerHTML = dayPart + '<b id="bkTime">' + timePart + '</b>';
+    document.getElementById('bookingCard').classList.remove('cancelled');
+    document.getElementById('bkTags').innerHTML =
+      '<span class="tag good">Подтверждено</span><span class="tag">Оплата на месте</span>';
+    resetBookingActions();
+  }
+  function resetBookingActions(){
+    document.getElementById('bkActions').innerHTML =
+      '<button class="ghost" data-action="reschedule">Перенести</button>' +
+      '<button class="ghost" data-action="open-cancel-confirm">Отменить</button>';
+  }
+  const rescheduleOptions = ['завтра, 19:00','завтра, 20:15','пятница, 18:30'];
+  let rescheduleIdx = 0;
+
+  /* ---------- чат: отправка и ответ бота ---------- */
+  function injectUserMessage(text){
+    const chatWrap = document.getElementById('chatWrap');
+    const me = document.createElement('div');
+    me.className = 'bubble me';
+    me.textContent = text;
+    chatWrap.appendChild(me);
+    chatWrap.scrollTop = chatWrap.scrollHeight;
+
+    const typing = document.createElement('div');
+    typing.className = 'typing';
+    typing.innerHTML = '<span></span><span></span><span></span>';
+    chatWrap.appendChild(typing);
+    chatWrap.scrollTop = chatWrap.scrollHeight;
+
+    setTimeout(function(){
+      typing.remove();
+      respondTo(text);
+    }, 900);
+  }
+
+  /* ---------- падежи имён мастеров (для грамматически верных фраз в чате) ---------- */
+  const NAME_CASES = {
+    'Оля': {gen:'Оли', dat:'Оле'},
+    'Маша': {gen:'Маши', dat:'Маше'},
+    'Дима': {gen:'Димы', dat:'Диме'}
+  };
+  function nameCase(name, c){ return (NAME_CASES[name] && NAME_CASES[name][c]) || name; }
+  function preposition(word){
+    return /^[аеёиоуыэюя]/i.test(word) ? 'об' : 'о';
+  }
+
+  function respondTo(text){
+    const chatWrap = document.getElementById('chatWrap');
+    const lower = text.toLowerCase();
+    let master = 'Оля', service = 'Маникюр', dur = '45 мин', t1 = '19:00', t2 = '20:15', dayLabel = 'сегодня вечером';
+    if(lower.indexOf('окраш') > -1 || lower.indexOf('маш') > -1){ master='Маша'; service='Окрашивание'; dur='2.5 ч'; t1='15:00'; t2='17:30'; }
+    else if(lower.indexOf('стриж') > -1 || lower.indexOf('дим') > -1){ master='Дима'; service='Стрижка'; dur='40 мин'; t1='12:00'; t2='18:00'; }
+    if(lower.indexOf('пятниц') > -1) dayLabel = 'в пятницу';
+    else if(lower.indexOf('завтра') > -1) dayLabel = 'завтра';
+    else if(lower.indexOf('четверг') > -1) dayLabel = 'в четверг';
+
+    const bot = document.createElement('div');
+    bot.className = 'bubble bot';
+    bot.textContent = 'Смотрю, что есть у ' + nameCase(master,'gen') + ' ' + dayLabel + '… 🔍';
+    chatWrap.appendChild(bot);
+    chatWrap.scrollTop = chatWrap.scrollHeight;
+
+    setTimeout(function(){
+      const card = document.createElement('div');
+      card.className = 'bubble card';
+      const initial = master.charAt(0);
+      card.innerHTML =
+        '<div class="slot-card-head">Нашла варианты:</div>' +
+        '<div class="slot-row"><div class="who"><div class="av">' + initial + '</div>' +
+        '<div class="meta"><div class="t">' + master + '</div><div class="d">' + service.toLowerCase() + ' · ' + dur + '</div></div></div>' +
+        '<button data-action="book" data-service="' + service + '" data-master="' + master + '" data-when="' + dayLabel + ', ' + t1 + '">' + t1 + '</button></div>' +
+        '<div class="slot-row"><div class="who"><div class="av">' + initial + '</div>' +
+        '<div class="meta"><div class="t">' + master + '</div><div class="d">' + service.toLowerCase() + ' · ' + dur + '</div></div></div>' +
+        '<button data-action="book" data-service="' + service + '" data-master="' + master + '" data-when="' + dayLabel + ', ' + t2 + '">' + t2 + '</button></div>';
+      chatWrap.appendChild(card);
+      chatWrap.scrollTop = chatWrap.scrollHeight;
+    }, 500);
+  }
+
+  function confirmBooking(service, master, when){
+    const chatWrap = document.getElementById('chatWrap');
+    const bot = document.createElement('div');
+    bot.className = 'bubble bot';
+    bot.textContent = 'Готово! Записала тебя на «' + service.toLowerCase() + '» к ' + nameCase(master,'dat') + ' — ' + when + ' 🎉';
+    chatWrap.appendChild(bot);
+    chatWrap.scrollTop = chatWrap.scrollHeight;
+    setBooking(service, master, when);
+    showToast('Добавила в «Мои записи»');
+  }
+
+  /* ---------- чат с салоном (человек-администратор, не AI) ---------- */
+  function injectSalonMessage(text){
+    const wrap = document.getElementById('salonChatWrap');
+    const me = document.createElement('div');
+    me.className = 'bubble me';
+    me.textContent = text;
+    wrap.appendChild(me);
+    wrap.scrollTop = wrap.scrollHeight;
+
+    const typing = document.createElement('div');
+    typing.className = 'typing';
+    typing.innerHTML = '<span></span><span></span><span></span>';
+    wrap.appendChild(typing);
+    wrap.scrollTop = wrap.scrollHeight;
+
+    setTimeout(function(){
+      typing.remove();
+      const reply = document.createElement('div');
+      reply.className = 'bubble bot';
+      const lower = text.toLowerCase();
+      if(lower.indexOf('перенести') > -1) reply.textContent = 'Без проблем! На какое время удобнее — посмотрю окна и предложу варианты.';
+      else if(lower.indexOf('вопрос') > -1) reply.textContent = 'Конечно, спрашивай — отвечу как только смогу 🙂';
+      else if(lower.indexOf('проблема') > -1) reply.textContent = 'Расскажи подробнее, что случилось — разберёмся.';
+      else reply.textContent = 'Приняла, отвечу в ближайшее время!';
+      wrap.appendChild(reply);
+      wrap.scrollTop = wrap.scrollHeight;
+    }, 800);
+  }
+
+  /* ---------- данные мастеров + состояние ручной записи ---------- */
+  const MASTERS = {
+    olya: {name:'Оля', dative:'Оле', spec:'Маникюр, педикюр', rating:'★ 4.9 · 214 отзывов', av:'О'},
+    masha: {name:'Маша', dative:'Маше', spec:'Окрашивание, стрижки', rating:'★ 4.8 · 176 отзывов', av:'М'},
+    dima: {name:'Дима', dative:'Диме', spec:'Стрижки, укладки', rating:'★ 5.0 · 98 отзывов', av:'Д'}
+  };
+  let currentMasterKey = 'olya';
+
+  const STAFF = {
+    olya: {av:'О', name:'Оля', roleClass:'master', roleLabel:'Мастер'},
+    masha: {av:'М', name:'Маша', roleClass:'master', roleLabel:'Мастер'},
+    nastya: {av:'Н', name:'Настя', roleClass:'admin', roleLabel:'Администратор'}
+  };
+  function staffRowHtml(key){
+    const s = STAFF[key];
+    return '<div class="sr-av">' + s.av + '</div>' +
+      '<div class="sr-mid"><div class="n">' + s.name + '</div><span class="role-tag ' + s.roleClass + '">' + s.roleLabel + '</span></div>' +
+      '<button class="sr-revoke" data-action="revoke-staff" data-staff="' + key + '">Отозвать</button>';
+  }
+
+  const SERVICES_BY_CAT = {
+    nails: [
+      {service:'Маникюр', dur:'45 мин', price:'2 800 ₽'},
+      {service:'Маникюр с покрытием', dur:'1 ч', price:'3 400 ₽'}
+    ],
+    hair: [
+      {service:'Стрижка', dur:'40 мин', price:'2 200 ₽'},
+      {service:'Окрашивание, блонд', dur:'2.5 ч', price:'6 500 ₽'}
+    ],
+    care: [
+      {service:'SPA-маникюр', dur:'1 ч', price:'3 800 ₽'},
+      {service:'Уход за кожей', dur:'50 мин', price:'3 200 ₽'}
+    ]
+  };
+  const mbState = {cat:'nails', service:'Маникюр', dur:'45 мин', price:'2 800 ₽', master:'Любой свободный', date:'Сегодня', time:'12:00'};
+
+  function renderMbServices(cat){
+    const list = document.getElementById('mbServiceList');
+    list.innerHTML = SERVICES_BY_CAT[cat].map(function(s, idx){
+      return '<div class="sheet-item" style="margin:0 18px 8px;' + (idx===0?'border-color:var(--plum);':'') + '" data-action="mb-pick-service" data-service="' + s.service + '" data-dur="' + s.dur + '" data-price="' + s.price + '">' +
+        '<div class="si-info"><div><div class="si-name">' + s.service + '</div><div class="si-sub">' + s.dur + ' · ' + s.price + '</div></div></div>' +
+        '<button style="pointer-events:none;">Выбрать</button></div>';
+    }).join('');
+    const first = SERVICES_BY_CAT[cat][0];
+    mbState.service = first.service; mbState.dur = first.dur; mbState.price = first.price;
+    updateMbConfirmBtn();
+  }
+  function updateMbConfirmBtn(){
+    document.getElementById('mbConfirmBtn').textContent = 'Записаться — ' + mbState.service + ', ' + mbState.price;
+  }
+  function chipActivate(el){
+    Array.from(el.parentElement.children).forEach(function(c){ c.classList.remove('active'); });
+    el.classList.add('active');
+  }
+
+  /* ---------- отзывы по мастерам ---------- */
+  const REVIEWS_BY_MASTER = {
+    olya: [
+      {who:'Света П.', stars:5, text:'Оля — золотые руки, маникюр держится по 3 недели без сколов.', meta:'28 июля · Маникюр'},
+      {who:'Настя В.', stars:5, text:'Аккуратно и по-доброму, всегда подскажет уход за ногтями.', meta:'15 июня · Педикюр'}
+    ],
+    masha: [
+      {who:'Ирина К.', stars:5, text:'Маша идеально попала в цвет, который я хотела. Очень аккуратно.', meta:'12 августа · Окрашивание'}
+    ],
+    dima: [
+      {who:'Катя Р.', stars:5, text:'Дима — лучший барбер в городе, всегда стильно и быстро.', meta:'02 сентября · Стрижка'}
+    ]
+  };
+  function reviewWord(n){
+    const mod10 = n % 10, mod100 = n % 100;
+    if(mod10 === 1 && mod100 !== 11) return 'отзыв';
+    if([2,3,4].indexOf(mod10) > -1 && [12,13,14].indexOf(mod100) === -1) return 'отзыва';
+    return 'отзывов';
+  }
+  function renderReviews(key){
+    document.querySelectorAll('#reviewsChipRow .chip').forEach(function(c){
+      c.classList.toggle('active', c.dataset.master === key);
+    });
+    let list, subText;
+    if(key === 'all'){
+      list = [].concat(REVIEWS_BY_MASTER.olya, REVIEWS_BY_MASTER.masha, REVIEWS_BY_MASTER.dima);
+      document.getElementById('reviewsTitle').textContent = 'Отзывы';
+      subText = '127 отзывов клиентов салона';
+    } else {
+      list = REVIEWS_BY_MASTER[key];
+      const m = MASTERS[key];
+      document.getElementById('reviewsTitle').textContent = 'Отзывы ' + preposition(m.dative) + ' ' + m.dative;
+      subText = list.length + ' ' + reviewWord(list.length) + ' о мастере ' + m.dative;
+    }
+    document.getElementById('reviewsSub').textContent = subText;
+    document.getElementById('reviewsList').innerHTML = list.map(function(r){
+      return '<div class="review-card">' +
+        '<div class="rv-top"><span class="rv-who">' + r.who + '</span><span class="rv-stars">' + '★'.repeat(r.stars) + '</span></div>' +
+        '<div class="rv-txt">' + r.text + '</div>' +
+        '<div class="rv-meta">' + r.meta + '</div>' +
+      '</div>';
+    }).join('') || '<p class="ai-hint">Пока нет отзывов в этой категории.</p>';
+  }
+
+  /* ---------- ЕДИНЫЙ делегированный обработчик кликов ---------- */
+  document.addEventListener('click', function(e){
+    const el = e.target.closest('[data-action]');
+    if(!el) return;
+    const action = el.dataset.action;
+
+    /* generic: любой .chip внутри .chip-row подсвечивается как выбранный */
+    if(el.classList.contains('chip') && el.parentElement.classList.contains('chip-row')){
+      chipActivate(el);
+    }
+    /* generic: сегмент-таб */
+    if(el.parentElement && el.parentElement.classList.contains('seg-tabs')){
+      chipActivate(el);
+    }
+
+    if(action === 'nav'){
+      if(el.dataset.screen === 'reviews' && !el.classList.contains('nav-btn')){
+        // переход в общий раздел отзывов не из карточки мастера — сбрасываем фильтр
+        renderReviews('all');
+      }
+      if(el.classList.contains('nav-btn')){
+        goToScreenReset(el.dataset.screen);
+      } else {
+        goToScreen(el.dataset.screen);
+      }
+      return;
+    }
+
+    if(action === 'back'){ goBack(); return; }
+
+    if(action === 'go-chat'){ goToScreen('chat'); return; }
+
+    if(action === 'open-services'){ openSheet('Услуги', servicesSheetHtml()); return; }
+    if(action === 'show-data'){ openSheet('Что я о тебе знаю', factsSheetHtml()); return; }
+    if(action === 'open-delete'){ openSheet('Удалить все данные?', deleteSheetHtml()); return; }
+    if(action === 'close-sheet'){ closeSheet(); return; }
+    if(action === 'overlay-bg'){ if(e.target.id === 'sheetOverlay'){ closeSheet(); } return; }
+
+    if(action === 'delete-no'){ closeSheet(); return; }
+    if(action === 'delete-yes'){
+      closeSheet();
+      document.querySelectorAll('.toggle').forEach(function(tg){ tg.classList.add('off'); });
+      showToast('Данные удалены. Профиль сброшен 🗑️');
+      return;
+    }
+
+    if(action === 'pick-service'){
+      closeSheet();
+      goToScreen('chat');
+      const service = el.dataset.service;
+      setTimeout(function(){ injectUserMessage('Хочу записаться на ' + service); }, 300);
+      return;
+    }
+
+    if(action === 'promo'){
+      setBooking('Окрашивание, блонд', 'Оля', 'четверг, 19:00');
+      document.getElementById('cfSvc').textContent = 'Окрашивание, блонд';
+      document.getElementById('cfMaster').textContent = 'Оля';
+      document.getElementById('cfWhen').textContent = 'Чт, 19:00';
+      document.getElementById('cfPrice').textContent = '6 500 ₽';
+      resetConfirmCta();
+      goToScreen('confirm');
+      return;
+    }
+
+    if(action === 'send-home'){ sendFromHome(); return; }
+    if(action === 'send-chat'){ sendFromChat(); return; }
+
+    if(action === 'book'){
+      confirmBooking(el.dataset.service, el.dataset.master, el.dataset.when);
+      return;
+    }
+
+    if(action === 'reschedule'){
+      rescheduleIdx = (rescheduleIdx + 1) % rescheduleOptions.length;
+      const parts = rescheduleOptions[rescheduleIdx].split(', ');
+      document.getElementById('bkWhen').innerHTML = parts[0] + '<b id="bkTime">' + parts[1] + '</b>';
+      showToast('Перенесла запись на ' + rescheduleOptions[rescheduleIdx]);
+      return;
+    }
+    if(action === 'open-cancel-confirm'){
+      document.getElementById('bkActions').innerHTML =
+        '<div class="confirm-bar" style="width:100%;">' +
+        '<button class="no" data-action="cancel-no">Нет, оставить</button>' +
+        '<button class="yes" data-action="cancel-yes">Да, отменить</button></div>';
+      return;
+    }
+    if(action === 'cancel-no'){ resetBookingActions(); return; }
+    if(action === 'cancel-yes'){
+      document.getElementById('bookingCard').classList.add('cancelled');
+      document.getElementById('bkTags').innerHTML = '<span class="tag" style="background:var(--tint-danger-bg);color:var(--tint-danger-text);">Отменено</span>';
+      document.getElementById('bkActions').innerHTML = '<span style="font-size:12px;color:var(--ink-soft);">Запись отменена</span>';
+      showToast('Запись отменена. Будем рады видеть тебя снова 🤍');
+      return;
+    }
+
+    if(action === 'confirm-cta'){
+      el.classList.add('done');
+      el.textContent = 'Готово! Ждём тебя ✓';
+      setBooking(
+        document.getElementById('cfSvc').textContent,
+        document.getElementById('cfMaster').textContent,
+        document.getElementById('cfWhen').textContent
+      );
+      document.getElementById('addToCalBtn').style.display = 'block';
+      showToast('Отправила подтверждение тебе в Telegram');
+      return;
+    }
+
+    if(action === 'toggle'){
+      el.classList.toggle('off');
+      const isOn = !el.classList.contains('off');
+      showToast(isOn ? el.dataset.onMsg : el.dataset.offMsg);
+      return;
+    }
+
+    if(action === 'set-theme'){
+      applyTheme(el.dataset.mode);
+      const label = el.dataset.mode === 'system' ? 'Системная' : (el.dataset.mode === 'light' ? 'Светлая' : 'Тёмная');
+      showToast('Тема: ' + label);
+      return;
+    }
+
+    /* ---------- уведомления ---------- */
+    if(action === 'open-notifications'){
+      document.getElementById('bellDot').style.display = 'none';
+      openSheet('Уведомления', '' +
+        '<div class="sheet-fact" data-action="notif-goto" data-screen="bookings" style="cursor:pointer;">Завтра в 19:00 — маникюр у Оли. Подтверди визит.</div>' +
+        '<div class="sheet-fact" data-action="notif-goto" data-screen="salonChat" style="cursor:pointer;">Настя ответила в чате салона на твой вопрос.</div>' +
+        '<div class="sheet-fact" data-action="notif-goto" data-screen="home" style="cursor:pointer;">Новая акция: -15% на уход по средам.</div>'
+      );
+      return;
+    }
+    if(action === 'notif-goto'){
+      closeSheet();
+      goToScreenReset(el.dataset.screen);
+      return;
+    }
+
+    /* ---------- главная: рекомендация, повтор, ближайшая запись ---------- */
+    if(action === 'reco-add'){ showToast('Добавила уход в следующую запись'); return; }
+    if(action === 'repeat-last'){
+      goToScreen('chat');
+      setTimeout(function(){ injectUserMessage('Хочу повторить как в прошлый раз — маникюр у Оли'); }, 300);
+      return;
+    }
+
+    /* ---------- мои записи: вкладки и новые действия ---------- */
+    if(action === 'bk-tab'){
+      const up = document.getElementById('bookingsUpcoming');
+      const past = document.getElementById('bookingsPast');
+      if(el.dataset.tab === 'upcoming'){ up.style.display=''; past.style.display='none'; }
+      else { up.style.display='none'; past.style.display=''; }
+      return;
+    }
+    if(action === 'bk-tab-past-from-profile'){
+      goToScreen('bookings');
+      setTimeout(function(){
+        document.querySelector("[data-action='bk-tab'][data-tab='past']").click();
+      }, 150);
+      return;
+    }
+    if(action === 'write-admin'){
+      goToScreen('salonChat');
+      showToast('Открыла чат с администратором');
+      return;
+    }
+    if(action === 'repeat-past'){
+      const service = el.dataset.service, master = el.dataset.master;
+      goToScreen('chat');
+      setTimeout(function(){ injectUserMessage('Хочу повторить: ' + service + ' у ' + nameCase(master,'gen')); }, 300);
+      return;
+    }
+    if(action === 'open-review'){
+      document.querySelector('#writeReview .sub').textContent = el.dataset.service + ' · ' + el.dataset.master;
+      goToScreen('writeReview');
+      return;
+    }
+
+    /* ---------- отзыв: звёзды, отправка ---------- */
+    if(action === 'pick-star'){
+      const n = parseInt(el.dataset.n, 10);
+      document.querySelectorAll('#starPick .st').forEach(function(s){
+        s.classList.toggle('on', parseInt(s.dataset.n,10) <= n);
+      });
+      return;
+    }
+    if(action === 'add-photo-noop'){ showToast('Добавление фото — демо-заглушка'); return; }
+    if(action === 'submit-review'){
+      const txt = document.getElementById('reviewText').value.trim();
+      if(!txt){ showToast('Напиши пару слов перед публикацией'); return; }
+      document.getElementById('reviewText').value = '';
+      showToast('Спасибо! Отзыв опубликован 🤍');
+      goToScreen('reviews');
+      return;
+    }
+
+    /* ---------- чат с салоном ---------- */
+    if(action === 'salon-quick'){
+      injectSalonMessage(el.dataset.text);
+      return;
+    }
+    if(action === 'send-salon-chat'){
+      const inp = document.getElementById('salonChatInput');
+      const val = inp.value.trim();
+      if(!val) return;
+      inp.value = '';
+      injectSalonMessage(val);
+      return;
+    }
+
+    /* ---------- мастера: список + карточка ---------- */
+    if(action === 'open-master'){
+      currentMasterKey = el.dataset.master;
+      const m = MASTERS[currentMasterKey];
+      document.getElementById('mdAv').textContent = m.av;
+      document.getElementById('mdName').textContent = m.name;
+      document.getElementById('mdSpec').textContent = m.spec;
+      document.getElementById('mdRating').textContent = m.rating;
+      document.getElementById('mdCta').textContent = 'Записаться к ' + m.dative;
+      document.getElementById('mdReviewsEntry').dataset.master = currentMasterKey;
+      document.getElementById('mdReviewsCount').textContent = REVIEWS_BY_MASTER[currentMasterKey].length + ' ' + reviewWord(REVIEWS_BY_MASTER[currentMasterKey].length);
+      goToScreen('masterDetail');
+      return;
+    }
+    if(action === 'master-reviews'){
+      const key = el.dataset.master;
+      renderReviews(key);
+      goToScreen('reviews');
+      return;
+    }
+    if(action === 'reviews-filter'){
+      renderReviews(el.dataset.master);
+      return;
+    }
+    if(action === 'md-pick-time'){ return; /* визуальный выбор, chipActivate уже сработал выше */ }
+    if(action === 'book-this-master'){
+      const m = MASTERS[currentMasterKey];
+      goToScreen('chat');
+      setTimeout(function(){ injectUserMessage('Хочу записаться к ' + m.dative); }, 300);
+      return;
+    }
+
+    /* ---------- результаты (до/после) ---------- */
+    if(action === 'filter-noop'){ return; /* визуальный фильтр для мастеров/отзывов вне вкладки Результаты */ }
+    if(action === 'results-filter'){
+      const key = el.dataset.master;
+      let visibleCount = 0;
+      document.querySelectorAll('#resultGrid .result-item').forEach(function(it){
+        const show = (key === 'all') || (it.dataset.master === key);
+        it.style.display = show ? '' : 'none';
+        if(show) visibleCount++;
+      });
+      document.getElementById('resultsEmpty').style.display = visibleCount === 0 ? 'block' : 'none';
+      return;
+    }
+    if(action === 'like-result'){
+      const liked = el.classList.toggle('liked');
+      const n = parseInt(el.textContent.replace(/\D/g,''), 10) || 0;
+      el.textContent = (liked ? '♥ ' : '♡ ') + (liked ? n + 1 : n - 1);
+      return;
+    }
+    if(action === 'open-result'){
+      const item = el.closest('.result-item');
+      const masterKey = item.dataset.master;
+      const service = item.dataset.service;
+      const m = MASTERS[masterKey];
+      const bg = el.style.background;
+      const likeEl = item.querySelector('.ri-like');
+      openSheet(service + ' · ' + m.name, resultDetailHtml(bg, m, service, likeEl.textContent, likeEl.classList.contains('liked')));
+      return;
+    }
+    if(action === 'want-same-specific'){
+      const masterName = el.dataset.mastername;
+      const service = el.dataset.service;
+      closeSheet();
+      goToScreen('chat');
+      setTimeout(function(){ injectUserMessage('Хочу такой же результат — ' + service.toLowerCase() + ' у ' + nameCase(masterName,'gen')); }, 300);
+      return;
+    }
+
+    /* ---------- ручная запись ---------- */
+    if(action === 'mb-cat'){
+      mbState.cat = el.dataset.cat;
+      renderMbServices(el.dataset.cat);
+      return;
+    }
+    if(action === 'mb-pick-service'){
+      document.querySelectorAll('#mbServiceList .sheet-item').forEach(function(it){ it.style.borderColor = 'var(--line)'; });
+      el.style.borderColor = 'var(--plum)';
+      mbState.service = el.dataset.service; mbState.dur = el.dataset.dur; mbState.price = el.dataset.price;
+      updateMbConfirmBtn();
+      return;
+    }
+    if(action === 'mb-master'){ mbState.master = el.dataset.master; return; }
+    if(action === 'mb-date'){ mbState.date = el.dataset.date; return; }
+    if(action === 'mb-time'){ mbState.time = el.dataset.time; return; }
+    if(action === 'mb-confirm'){
+      document.getElementById('cfSvc').textContent = mbState.service;
+      document.getElementById('cfMaster').textContent = mbState.master;
+      document.getElementById('cfWhen').textContent = mbState.date + ', ' + mbState.time;
+      document.getElementById('cfPrice').textContent = mbState.price;
+      resetConfirmCta();
+      goToScreen('confirm');
+      return;
+    }
+    if(action === 'add-to-calendar'){
+      showToast('Добавлено в календарь Telegram');
+      return;
+    }
+
+    /* ---------- роли ---------- */
+    if(action === 'open-role-switch'){ openSheet('Демо: посмотреть как…', roleSwitchSheetHtml()); return; }
+    if(action === 'pick-role'){ closeSheet(); setRole(el.dataset.role); return; }
+
+    if(action === 'admin-remind'){
+      showToast('Отправила Ивановой запрос на подтверждение записи');
+      const card = el.closest('.alert-card');
+      if(card) card.style.display = 'none';
+      return;
+    }
+    if(action === 'admin-dismiss-alert'){
+      const card = el.closest('.alert-card');
+      if(card) card.style.display = 'none';
+      showToast('Скрыла напоминание');
+      return;
+    }
+    if(action === 'open-rules-stub'){
+      showToast('Раздел «Правила и лимиты» — в разработке, здесь будут скидки, депозиты и настройки автопилота');
+      return;
+    }
+
+  if(action === 'revoke-staff'){
+      const row = el.closest('.staff-row');
+      row.innerHTML = '<div style="width:100%;">' +
+        '<div style="font-size:12.5px;margin-bottom:8px;">Отозвать доступ у ' + row.querySelector('.n').textContent + '?</div>' +
+        '<div class="confirm-bar" style="margin-top:0;">' +
+        '<button class="no" data-action="revoke-no">Нет</button>' +
+        '<button class="yes" data-action="revoke-yes">Да, отозвать</button>' +
+        '</div></div>';
+      return;
+    }
+    if(action === 'revoke-no'){
+      const row = el.closest('.staff-row');
+      row.innerHTML = staffRowHtml(row.dataset.staff);
+      return;
+    }
+    if(action === 'revoke-yes'){
+      const row = el.closest('.staff-row');
+      const name = row.dataset.staff;
+      row.classList.add('revoked');
+      row.innerHTML = '<div style="width:100%;font-size:12.5px;color:var(--ink-soft);">Доступ отозван — ссылка для входа больше не действует</div>';
+      showToast('Готово. Человек больше не сможет войти');
+      return;
+    }
+
+    if(action === 'open-invite'){ openSheet('Пригласить сотрудника', inviteRolePickHtml()); return; }
+    if(action === 'gen-invite'){
+      const role = el.dataset.role;
+      const code = Math.random().toString(36).slice(2,8).toUpperCase();
+      document.getElementById('sheetBody').innerHTML = inviteGeneratedHtml(role, code);
+      startInviteCountdown();
+      return;
+    }
+    if(action === 'copy-invite'){
+      showToast('Ссылка скопирована — отправь её человеку');
+      return;
+    }
+  });
+
+  function resetConfirmCta(){
+    const btn = document.getElementById('confirmCta');
+    btn.classList.remove('done');
+    btn.textContent = 'Подтвердить и забронировать';
+    document.getElementById('addToCalBtn').style.display = 'none';
+  }
+
+  function sendFromHome(){
+    const inp = document.getElementById('homeAsk');
+    const val = inp.value.trim();
+    inp.value = '';
+    goToScreen('chat');
+    if(val){ setTimeout(function(){ injectUserMessage(val); }, 300); }
+  }
+  function sendFromChat(){
+    const inp = document.getElementById('chatInput');
+    const val = inp.value.trim();
+    if(!val) return;
+    inp.value = '';
+    injectUserMessage(val);
+  }
+
+  /* ---------- Enter в полях ввода (не через onclick, обычный addEventListener) ---------- */
+  document.getElementById('homeAsk').addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ sendFromHome(); }
+  });
+  document.getElementById('chatInput').addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ sendFromChat(); }
+  });
+
+  /* ---------- старт: определяем роль (для демо — всегда клиент) и прячем сплэш ---------- */
+  renderMbServices('nails');
+  renderReviews('all');
+  setRole('client');
+  setTimeout(function(){
+    const sp = document.getElementById('splash');
+    if(sp) sp.classList.add('hide');
+  }, 900);
+}
+</script>
+
+</body>
+</html>
